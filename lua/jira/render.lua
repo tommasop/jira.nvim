@@ -186,7 +186,8 @@ local function render_issue_line(node, depth, row)
 
   -- Highlight Status
   local right_status_start = right_col2_start + #col2_str + #col2_pad + 2
-  add_hl(highlights, right_status_start, status_str, is_root and "JiraStatusRoot" or "JiraStatus")
+  local status_hl = state.status_hls[node.status] or (is_root and "JiraStatusRoot" or "JiraStatus")
+  add_hl(highlights, right_status_start, status_str, status_hl)
 
   api.nvim_buf_set_lines(state.buf, row, row + 1, false, { full_line })
 

@@ -23,6 +23,35 @@ M.open = function()
     return
   end
 
+  -- Fetch Status Colors
+  local api_client = require("jira.jira-api.api")
+  local project_statuses, st_err = api_client.get_project_statuses(state.config.jira.project)
+  if not st_err and project_statuses then
+    local color_map = {
+      ["blue-gray"] = "#89b4fa",
+      ["medium-gray"] = "#9399b2",
+      ["green"] = "#a6e3a1",
+      ["yellow"] = "#f9e2af",
+      ["red"] = "#f38ba8",
+      ["brown"] = "#ef9f76",
+    }
+
+    for _, itype in ipairs(project_statuses) do
+      for _, st in ipairs(itype.statuses or {}) do
+        local hl_name = "JiraStatus_" .. st.name:gsub("%s+", "_")
+        local color_name = st.statusCategory and st.statusCategory.colorName or "medium-gray"
+        local hex = color_map[color_name] or "#9399b2"
+
+        vim.api.nvim_set_hl(0, hl_name, {
+          fg = "#1e1e2e", -- Dark background for status label
+          bg = hex,
+          bold = true,
+        })
+        state.status_hls[st.name] = hl_name
+      end
+    end
+  end
+
   -- Backdrop
   local dim_buf = api.nvim_create_buf(false, true)
   state.dim_win = api.nvim_open_win(dim_buf, false, {

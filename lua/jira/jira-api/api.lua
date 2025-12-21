@@ -138,4 +138,14 @@ function M.get_issue(issue_key)
   return result, nil
 end
 
+-- Get statuses for a project
+function M.get_project_statuses(project)
+  local result, err = curl_request("GET", "/rest/api/3/project/" .. project .. "/statuses")
+  if err then
+    return nil, err
+  end
+
+  return result, nil
+end
+
 return M
