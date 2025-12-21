@@ -147,7 +147,7 @@ local function render_issue_line(node, depth, row)
     end
 
     local ass = truncate(node.assignee or "Unassigned", MAX.ASSIGNEE - 2)
-    col2_str = "󱠂 " .. ass
+    col2_str = " " .. ass
   end
 
   local col1_pad = string.rep(" ", MAX.TIME - vim.fn.strdisplaywidth(col1_str))
