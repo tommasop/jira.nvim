@@ -13,6 +13,24 @@ M.setup = function(opts)
   config.setup(opts)
 end
 
+M.toggle_node = function()
+  local cursor = api.nvim_win_get_cursor(state.win)
+  local row = cursor[1] - 1
+  local node = state.line_map[row]
+
+  if node and node.children and #node.children > 0 then
+    node.expanded = not node.expanded
+    render.clear(state.buf)
+    render.render_issue_tree(state.tree)
+    
+    local line_count = api.nvim_buf_line_count(state.buf)
+    if cursor[1] > line_count then
+      cursor[1] = line_count
+    end
+    api.nvim_win_set_cursor(state.win, cursor)
+  end
+end
+
 M.open = function(project_key)
   -- If already open, just focus
   if state.win and api.nvim_win_is_valid(state.win) then
@@ -68,8 +86,15 @@ M.open = function(project_key)
           ui.setup_highlights(project_statuses)
         end
 
-        local tree = util.build_issue_tree(issues)
-        render.render_issue_tree(tree)
+        state.tree = util.build_issue_tree(issues)
+        render.render_issue_tree(state.tree)
+        
+        -- Keymaps
+        local opts = { noremap = true, silent = true, buffer = state.buf }
+        vim.keymap.set("n", "o", function() require("jira").toggle_node() end, opts)
+        vim.keymap.set("n", "<CR>", function() require("jira").toggle_node() end, opts)
+        vim.keymap.set("n", "<Tab>", function() require("jira").toggle_node() end, opts)
+        
         vim.notify("Loaded Dashboard for " .. project_key, vim.log.levels.INFO)
       end)
     end)

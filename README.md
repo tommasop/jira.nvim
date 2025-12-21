@@ -15,8 +15,8 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI
 
 ## TODO
 - [x] Jira sprint board
+- [x] Config
 - [ ] Expand
-- [ ] Config
 - [ ] Log time
 - [ ] Change status
 - [ ] Read task

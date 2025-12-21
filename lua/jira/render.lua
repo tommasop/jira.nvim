@@ -156,6 +156,11 @@ local function render_issue_line(node, depth, row)
   local indent = string.rep("    ", depth - 1)
   local icon, icon_hl = get_issue_icon(node)
 
+  local expand_icon = " "
+  if node.children and #node.children > 0 then
+    expand_icon = node.expanded and "" or ""
+  end
+
   local is_root = depth == 1
 
   local key = node.key or ""
@@ -172,7 +177,10 @@ local function render_issue_line(node, depth, row)
   local col = #indent
 
   -- LEFT --------------------------------------------------
-  local left = string.format("%s%s %s %s %s", indent, icon, key, title, pts)
+  local left = string.format("%s%s %s %s %s %s", indent, expand_icon, icon, key, title, pts)
+
+  add_hl(highlights, col, expand_icon, "Comment")
+  col = col + #expand_icon + 1
 
   add_hl(highlights, col, icon, icon_hl)
   col = col + #icon + 1
@@ -250,16 +258,21 @@ function M.render_issue_tree(issues, depth, row)
   depth = depth or 1
   row = row or 0
 
+  if depth == 1 then
+    state.line_map = {}
+  end
+
   for i, node in ipairs(issues) do
     if depth == 1 and i > 1 then
       api.nvim_buf_set_lines(state.buf, row, row + 1, false, { "" })
       row = row + 1
     end
 
+    state.line_map[row] = node
     render_issue_line(node, depth, row)
     row = row + 1
 
-    if node.children and #node.children > 0 then
+    if node.children and #node.children > 0 and node.expanded then
       row = M.render_issue_tree(node.children, depth + 1, row)
     end
   end
