@@ -9,6 +9,7 @@ local state = {
   project_key = nil,
   current_view = nil,
   custom_jql = nil,
+  cache = {},
 }
 
 return state

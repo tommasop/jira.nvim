@@ -31,6 +31,14 @@ M.toggle_node = function()
   end
 end
 
+local function get_cache_key(project_key, view_name)
+  local key = project_key .. ":" .. view_name
+  if view_name == "JQL" then
+    key = key .. ":" .. (state.custom_jql or "")
+  end
+  return key
+end
+
 M.setup_keymaps = function()
   local opts = { noremap = true, silent = true, buffer = state.buf }
   vim.keymap.set("n", "o", function() require("jira").toggle_node() end, opts)
@@ -45,6 +53,12 @@ M.setup_keymaps = function()
   vim.keymap.set("n", "K", function() require("jira").show_issue_details() end, opts)
 
   -- Actions
+  vim.keymap.set("n", "r", function()
+    local cache_key = get_cache_key(state.project_key, state.current_view)
+    state.cache[cache_key] = nil
+    require("jira").load_view(state.project_key, state.current_view)
+  end, opts)
+
   vim.keymap.set("n", "q", function()
     if state.win and api.nvim_win_is_valid(state.win) then
        api.nvim_win_close(state.win, true)
@@ -71,6 +85,42 @@ M.load_view = function(project_key, view_name)
     return
   end
 
+  local cache_key = get_cache_key(project_key, view_name)
+  local cached_issues = state.cache[cache_key]
+
+  local function process_issues(issues)
+    vim.schedule(function()
+      ui.stop_loading()
+
+      -- Setup UI if not already created
+      if not state.win or not api.nvim_win_is_valid(state.win) then
+        ui.create_window()
+        ui.setup_static_highlights()
+      end
+
+      if not issues or #issues == 0 then
+        state.tree = {}
+        render.clear(state.buf)
+        render.render_issue_tree(state.tree, state.current_view)
+        vim.notify("No issues found in " .. view_name .. ".", vim.log.levels.WARN)
+      else
+        state.tree = util.build_issue_tree(issues)
+        render.clear(state.buf)
+        render.render_issue_tree(state.tree, state.current_view)
+        if not cached_issues then
+          vim.notify("Loaded " .. view_name .. " for " .. project_key, vim.log.levels.INFO)
+        end
+      end
+
+      M.setup_keymaps()
+    end)
+  end
+
+  if cached_issues then
+    process_issues(cached_issues)
+    return
+  end
+
   ui.start_loading("Loading " .. view_name .. " for " .. project_key .. "...")
 
   local fetch_fn
@@ -91,29 +141,8 @@ M.load_view = function(project_key, view_name)
       return
     end
 
-    vim.schedule(function()
-      ui.stop_loading()
-
-      -- Setup UI if not already created
-      if not state.win or not api.nvim_win_is_valid(state.win) then
-        ui.create_window()
-        ui.setup_static_highlights()
-      end
-
-      if not issues or #issues == 0 then
-        state.tree = {}
-        render.clear(state.buf)
-        render.render_issue_tree(state.tree, state.current_view)
-        vim.notify("No issues found in " .. view_name .. ".", vim.log.levels.WARN)
-      else
-        state.tree = util.build_issue_tree(issues)
-        render.clear(state.buf)
-        render.render_issue_tree(state.tree, state.current_view)
-        vim.notify("Loaded " .. view_name .. " for " .. project_key, vim.log.levels.INFO)
-      end
-
-      M.setup_keymaps()
-    end)
+    state.cache[cache_key] = issues
+    process_issues(issues)
   end)
 end
 

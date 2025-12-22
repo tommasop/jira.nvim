@@ -298,6 +298,7 @@ function M.render_help(view)
     { k = "B", d = "Switch to Backlog" },
     { k = "J", d = "Custom JQL Search" },
     { k = "K", d = "Show Issue Details (Popup)" },
+    { k = "r", d = "Refresh current view" },
     { k = "H", d = "Show this Help" },
     { k = "q", d = "Close Board" },
   }
