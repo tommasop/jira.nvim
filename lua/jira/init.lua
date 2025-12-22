@@ -31,9 +31,44 @@ M.toggle_node = function()
   end
 end
 
+M.setup_keymaps = function()
+  local opts = { noremap = true, silent = true, buffer = state.buf }
+  vim.keymap.set("n", "o", function() require("jira").toggle_node() end, opts)
+  vim.keymap.set("n", "<CR>", function() require("jira").toggle_node() end, opts)
+  vim.keymap.set("n", "<Tab>", function() require("jira").toggle_node() end, opts)
+
+  -- Tab switching
+  vim.keymap.set("n", "S", function() require("jira").load_view(state.project_key, "Active Sprint") end, opts)
+  vim.keymap.set("n", "B", function() require("jira").load_view(state.project_key, "Backlog") end, opts)
+  vim.keymap.set("n", "J", function() require("jira").prompt_jql() end, opts)
+  vim.keymap.set("n", "H", function() require("jira").load_view(state.project_key, "Help") end, opts)
+
+  -- Actions
+  vim.keymap.set("n", "q", function()
+    if state.win and api.nvim_win_is_valid(state.win) then
+       api.nvim_win_close(state.win, true)
+    end
+  end, opts)
+end
+
 M.load_view = function(project_key, view_name)
   state.project_key = project_key
   state.current_view = view_name
+
+  if view_name == "Help" then
+    vim.schedule(function()
+      if not state.win or not api.nvim_win_is_valid(state.win) then
+        ui.create_window()
+        ui.setup_static_highlights()
+      end
+      state.tree = {}
+      state.line_map = {}
+      render.clear(state.buf)
+      render.render_help(view_name)
+      M.setup_keymaps()
+    end)
+    return
+  end
 
   ui.start_loading("Loading " .. view_name .. " for " .. project_key .. "...")
 
@@ -76,16 +111,7 @@ M.load_view = function(project_key, view_name)
         vim.notify("Loaded " .. view_name .. " for " .. project_key, vim.log.levels.INFO)
       end
 
-      -- Keymaps
-      local opts = { noremap = true, silent = true, buffer = state.buf }
-      vim.keymap.set("n", "o", function() require("jira").toggle_node() end, opts)
-      vim.keymap.set("n", "<CR>", function() require("jira").toggle_node() end, opts)
-      vim.keymap.set("n", "<Tab>", function() require("jira").toggle_node() end, opts)
-
-      -- Tab switching
-      vim.keymap.set("n", "S", function() require("jira").load_view(state.project_key, "Active Sprint") end, opts)
-      vim.keymap.set("n", "B", function() require("jira").load_view(state.project_key, "Backlog") end, opts)
-      vim.keymap.set("n", "J", function() require("jira").prompt_jql() end, opts)
+      M.setup_keymaps()
     end)
   end)
 end

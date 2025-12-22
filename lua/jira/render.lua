@@ -262,6 +262,7 @@ local function render_header(view)
     { name = "Active Sprint", key = "S" },
     { name = "Backlog", key = "B" },
     { name = "JQL", key = "J" },
+    { name = "Help", key = "H" },
   }
 
   local header = "  "
@@ -283,6 +284,45 @@ local function render_header(view)
   api.nvim_buf_set_lines(state.buf, 0, -1, false, { header, "" })
   for _, h in ipairs(hls) do
     api.nvim_buf_set_extmark(state.buf, state.ns, 0, h.start_col, {
+      end_col = h.end_col,
+      hl_group = h.hl,
+    })
+  end
+end
+
+function M.render_help(view)
+  render_header(view)
+  local help_content = {
+    { k = "o, <CR>, <Tab>", d = "Toggle Node (Expand/Collapse)" },
+    { k = "S", d = "Switch to Active Sprint" },
+    { k = "B", d = "Switch to Backlog" },
+    { k = "J", d = "Custom JQL Search" },
+    { k = "H", d = "Show this Help" },
+    { k = "q", d = "Close Board" },
+  }
+
+  local lines = { "" }
+  local hls = {}
+
+  table.insert(lines, "  Keymaps:")
+  table.insert(lines, "")
+
+  for _, item in ipairs(help_content) do
+    local line = string.format("    %-18s %s", item.k, item.d)
+    table.insert(lines, line)
+    local buf_row = 2 + #lines - 1
+
+    table.insert(hls, {
+      row = buf_row,
+      start_col = 4,
+      end_col = 4 + #item.k,
+      hl = "Special",
+    })
+  end
+
+  api.nvim_buf_set_lines(state.buf, 2, -1, false, lines)
+  for _, h in ipairs(hls) do
+    api.nvim_buf_set_extmark(state.buf, state.ns, h.row, h.start_col, {
       end_col = h.end_col,
       hl_group = h.hl,
     })
