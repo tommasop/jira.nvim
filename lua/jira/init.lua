@@ -34,38 +34,124 @@ end
 local function get_cache_key(project_key, view_name)
   local key = project_key .. ":" .. view_name
   if view_name == "JQL" then
-    key = key .. ":" .. (state.custom_jql or "")
+    key = key .. ":" .. (state.current_query or "Custom JQL")
+    if state.current_query == "Custom JQL" then
+      key = key .. ":" .. (state.custom_jql or "")
+    end
   end
   return key
 end
 
+M.get_query_names = function()
+  local queries = config.options.queries or {}
+  local names = {}
+  for name, _ in pairs(queries) do
+    table.insert(names, name)
+  end
+  table.sort(names)
+  return names
+end
+
+M.handle_cr = function()
+  local cursor = api.nvim_win_get_cursor(state.win)
+  local row = cursor[1] - 1
+
+  if state.current_view == "JQL" then
+    if row == state.jql_line then
+      M.prompt_jql()
+      return
+    end
+
+    local query_name = state.query_map[row]
+    if query_name then
+      M.switch_query(query_name)
+      return
+    end
+  end
+
+  -- Fallback to toggle node if it's an issue line
+  M.toggle_node()
+end
+
+M.prompt_jql = function()
+  ui.open_jql_input(state.custom_jql or "", function(input)
+    state.custom_jql = input
+    state.current_query = "Custom JQL"
+    M.load_view(state.project_key, "JQL")
+  end)
+end
+
+M.switch_query = function(query_name)
+  local queries = config.options.queries or {}
+  state.current_query = query_name
+
+  local jql = queries[query_name]
+  state.custom_jql = string.format(jql, state.project_key)
+
+  M.load_view(state.project_key, "JQL")
+end
+
 M.setup_keymaps = function()
-  local opts = { noremap = true, silent = true, buffer = state.buf }
-  vim.keymap.set("n", "o", function() require("jira").toggle_node() end, opts)
-  vim.keymap.set("n", "<CR>", function() require("jira").toggle_node() end, opts)
-  vim.keymap.set("n", "<Tab>", function() require("jira").toggle_node() end, opts)
+  local opts = { noremap = true, silent = true, buffer = state.buf } 
+  
+  -- Clear existing buffer keymaps
+  local keys_to_clear = { "o", "S", "B", "J", "H", "K", "m", "gx", "r", "q", "a", "s", "c", "l", "e", "i", "<Esc>", "1", "2", "3", "4", "5", "6", "7", "8", "9" }
+  for _, k in ipairs(keys_to_clear) do
+    pcall(vim.api.nvim_buf_del_keymap, state.buf, "n", k)
+  end
 
-  -- Tab switching
-  vim.keymap.set("n", "S", function() require("jira").load_view(state.project_key, "Active Sprint") end, opts)
-  vim.keymap.set("n", "B", function() require("jira").load_view(state.project_key, "Backlog") end, opts)
-  vim.keymap.set("n", "J", function() require("jira").prompt_jql() end, opts)
-  vim.keymap.set("n", "H", function() require("jira").load_view(state.project_key, "Help") end, opts)
-  vim.keymap.set("n", "K", function() require("jira").show_issue_details() end, opts)
-  vim.keymap.set("n", "m", function() require("jira").read_task() end, opts)
-  vim.keymap.set("n", "gx", function() require("jira").open_in_browser() end, opts)
-
-  -- Actions
-  vim.keymap.set("n", "r", function()
-    local cache_key = get_cache_key(state.project_key, state.current_view)
-    state.cache[cache_key] = nil
-    require("jira").load_view(state.project_key, state.current_view)
-  end, opts)
-
+  -- Navigation (Always available)
   vim.keymap.set("n", "q", function()
     if state.win and api.nvim_win_is_valid(state.win) then
        api.nvim_win_close(state.win, true)
     end
   end, opts)
+
+  if state.mode == "Normal" then
+    -- Actions
+    vim.keymap.set("n", "<Tab>", function() require("jira").toggle_node() end, opts)
+    vim.keymap.set("n", "<CR>", function() require("jira").handle_cr() end, opts)
+
+    -- View switching
+    vim.keymap.set("n", "S", function() require("jira").load_view(state.project_key, "Active Sprint") end, opts)
+    vim.keymap.set("n", "J", function() require("jira").load_view(state.project_key, "JQL") end, opts)
+    vim.keymap.set("n", "H", function() require("jira").load_view(state.project_key, "Help") end, opts)
+
+    -- Quick Actions
+    vim.keymap.set("n", "K", function() require("jira").show_issue_details() end, opts)
+    vim.keymap.set("n", "m", function() require("jira").read_task() end, opts)
+    vim.keymap.set("n", "gx", function() require("jira").open_in_browser() end, opts)
+    vim.keymap.set("n", "r", function()
+      local cache_key = get_cache_key(state.project_key, state.current_view)
+      state.cache[cache_key] = nil
+      require("jira").load_view(state.project_key, state.current_view)
+    end, opts)
+
+    -- Mode switching
+    vim.keymap.set("n", "a", function() require("jira").set_mode("Action") end, opts)
+  
+  elseif state.mode == "Action" then
+    -- Issue Actions
+    vim.keymap.set("n", "s", function() vim.notify("Update Status - Coming soon") end, opts)
+    vim.keymap.set("n", "c", function() vim.notify("Add Comment - Coming soon") end, opts)
+    vim.keymap.set("n", "l", function() vim.notify("Log Time - Coming soon") end, opts)
+    vim.keymap.set("n", "e", function() vim.notify("Edit Issue - Coming soon") end, opts)
+
+    -- Mode switching
+    vim.keymap.set("n", "a", function() require("jira").set_mode("Normal") end, opts)
+    vim.keymap.set("n", "<Esc>", function() require("jira").set_mode("Normal") end, opts)
+  end
+end
+
+M.set_mode = function(mode)
+  state.mode = mode
+  render.clear(state.buf)
+  if state.current_view == "Help" then
+    render.render_help(state.current_view)
+  else
+    render.render_issue_tree(state.tree, state.current_view)
+  end
+  M.setup_keymaps()
 end
 
 M.load_view = function(project_key, view_name)
@@ -85,6 +171,17 @@ M.load_view = function(project_key, view_name)
       M.setup_keymaps()
     end)
     return
+  end
+
+  if view_name == "JQL" and not state.current_query then
+    local query_names = M.get_query_names()
+    if #query_names > 0 then
+      state.current_query = query_names[1]
+      local queries = config.options.queries or {}
+      state.custom_jql = string.format(queries[state.current_query], project_key)
+    else
+      state.current_query = "Custom JQL"
+    end
   end
 
   local cache_key = get_cache_key(project_key, view_name)
@@ -128,8 +225,6 @@ M.load_view = function(project_key, view_name)
   local fetch_fn
   if view_name == "Active Sprint" then
     fetch_fn = function(pk, cb) sprint.get_active_sprint_issues(pk, cb) end
-  elseif view_name == "Backlog" then
-    fetch_fn = function(pk, cb) sprint.get_backlog_issues(pk, cb) end
   elseif view_name == "JQL" then
     fetch_fn = function(pk, cb) sprint.get_issues_by_jql(pk, state.custom_jql, cb) end
   end
@@ -145,14 +240,6 @@ M.load_view = function(project_key, view_name)
 
     state.cache[cache_key] = issues
     process_issues(issues)
-  end)
-end
-
-M.prompt_jql = function()
-  vim.ui.input({ prompt = "JQL: ", default = state.custom_jql or "" }, function(input)
-    if not input or input == "" then return end
-    state.custom_jql = input
-    M.load_view(state.project_key, "JQL")
   end)
 end
 

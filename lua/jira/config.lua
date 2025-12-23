@@ -8,6 +8,7 @@ local FALLBACKS = {
 ---@class JiraConfig
 ---@field jira JiraAuthOptions
 ---@field projects? table<string, table> Project-specific overrides
+---@field queries? table<string, string> Saved JQL queries
 
 ---@class JiraAuthOptions
 ---@field base string URL of your Jira instance (e.g. https://your-domain.atlassian.net)
@@ -21,9 +22,13 @@ M.defaults = {
     base = "",
     email = "",
     token = "",
-    limit = 500,
+    limit = 200,
   },
-  projects = {}
+  projects = {},
+  queries = {
+    ["Backlog"] = "project = '%s' AND (sprint is EMPTY OR sprint not in openSprints()) AND statusCategory != Done ORDER BY Rank ASC",
+    ["My Tasks"] = "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC",
+  }
 }
 
 ---@type JiraConfig

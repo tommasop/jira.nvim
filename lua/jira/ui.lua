@@ -66,6 +66,7 @@ end
 
 function M.setup_static_highlights()
   vim.api.nvim_set_hl(0, "JiraTopLevel", { link = "CursorLineNr", bold = true })
+  vim.api.nvim_set_hl(0, "JiraSubTask", { link = "Identifier" })
   vim.api.nvim_set_hl(0, "JiraStoryPoint", { link = "Error", bold = true })
   vim.api.nvim_set_hl(0, "JiraAssignee", { link = "MoreMsg" })
   vim.api.nvim_set_hl(0, "JiraAssigneeUnassigned", { link = "Comment", italic = true })
@@ -76,6 +77,12 @@ function M.setup_static_highlights()
 
   vim.api.nvim_set_hl(0, "JiraTabActive", { link = "CurSearch", bold = true })
   vim.api.nvim_set_hl(0, "JiraTabInactive", { link = "Search" })
+
+  vim.api.nvim_set_hl(0, "JiraSubTabActive", { link = "Visual", bold = true })
+  vim.api.nvim_set_hl(0, "JiraSubTabInactive", { link = "StatusLineNC" })
+
+  vim.api.nvim_set_hl(0, "JiraHelp", { link = "Comment", italic = true })
+  vim.api.nvim_set_hl(0, "JiraKey", { link = "Special", bold = true })
 
   -- Icons
   vim.api.nvim_set_hl(0, "JiraIconBug", { fg = "#f38ba8" })      -- Red
@@ -107,6 +114,7 @@ function M.create_window()
 
   state.buf = api.nvim_create_buf(false, true)
   api.nvim_buf_set_option(state.buf, "bufhidden", "wipe")
+  api.nvim_buf_set_option(state.buf, "modifiable", false)
 
   local height = 42
   local width = 160
@@ -310,6 +318,40 @@ function M.open_markdown_view(title, lines)
   })
 
   vim.keymap.set("n", "q", function() api.nvim_win_close(win, true) end, { buffer = buf, silent = true })
+end
+
+function M.open_jql_input(default, callback)
+  local buf = api.nvim_create_buf(false, true)
+  api.nvim_buf_set_lines(buf, 0, -1, false, { default or "" })
+
+  local width = 80
+  local height = 3
+  local win = api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = (vim.o.lines - height) / 2,
+    col = (vim.o.columns - width) / 2,
+    style = "minimal",
+    border = "rounded",
+    title = " Enter Custom JQL (Press <CR> to submit, q to cancel) ",
+    title_pos = "center",
+  })
+
+  vim.api.nvim_command("startinsert!")
+
+  local function submit()
+    local lines = api.nvim_buf_get_lines(buf, 0, -1, false)
+    local input = table.concat(lines, " "):gsub("^%s*(.-)%s*$", "%1")
+    api.nvim_win_close(win, true)
+    if input ~= "" then
+      callback(input)
+    end
+  end
+
+  vim.keymap.set({ "n", "i" }, "<CR>", submit, { buffer = buf, silent = true })
+  vim.keymap.set("n", "q", function() api.nvim_win_close(win, true) end, { buffer = buf, silent = true })
+  vim.keymap.set("n", "<Esc>", function() api.nvim_win_close(win, true) end, { buffer = buf, silent = true })
 end
 
 return M

@@ -111,7 +111,7 @@ function M.get_backlog_issues(project, callback)
   end
 
   local jql = string.format(
-    "project = '%s' AND (sprint is EMPTY OR sprint not in openSprints()) AND statusCategory != Done ORDER BY Rank ASC",
+    "project = '%s' AND (sprint is EMPTY OR sprint not in openSprints()) AND issuetype not in (Epic) AND statusCategory != Done ORDER BY Rank ASC",
     project
   )
 

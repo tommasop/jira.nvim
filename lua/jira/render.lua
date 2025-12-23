@@ -245,7 +245,9 @@ local function render_issue_line(node, depth, row)
   local status_hl = ui.get_status_hl(node.status)
   add_hl(highlights, right_status_start, status_str, status_hl)
 
+  api.nvim_buf_set_option(state.buf, "modifiable", true)
   api.nvim_buf_set_lines(state.buf, row, row + 1, false, { full_line })
+  api.nvim_buf_set_option(state.buf, "modifiable", false)
 
   for _, h in ipairs(highlights) do
     api.nvim_buf_set_extmark(state.buf, state.ns, row, h.start_col, {
@@ -260,7 +262,6 @@ end
 local function render_header(view)
   local tabs = {
     { name = "Active Sprint", key = "S" },
-    { name = "Backlog", key = "B" },
     { name = "JQL", key = "J" },
     { name = "Help", key = "H" },
   }
@@ -275,61 +276,174 @@ local function render_header(view)
     header = header .. tab_str .. "  "
 
     table.insert(hls, {
+      row = 0,
       start_col = start_col,
       end_col = start_col + #tab_str,
       hl = is_active and "JiraTabActive" or "JiraTabInactive",
     })
   end
 
-  api.nvim_buf_set_lines(state.buf, 0, -1, false, { header, "" })
-  for _, h in ipairs(hls) do
-    api.nvim_buf_set_extmark(state.buf, state.ns, 0, h.start_col, {
-      end_col = h.end_col,
-      hl_group = h.hl,
+  local header_lines = { header, "" }
+
+  if view == "JQL" then
+    -- JQL Input Line
+    local jql_display = state.custom_jql or ""
+    local jql_line = "    󰭎 JQL Query: " .. jql_display
+    table.insert(header_lines, jql_line)
+    state.jql_line = #header_lines - 1
+    table.insert(hls, { row = state.jql_line, start_col = 4, end_col = 18, hl = "Keyword" })
+    table.insert(hls, { row = state.jql_line, start_col = 19, end_col = -1, hl = "String" })
+    
+    -- Border for JQL line
+    table.insert(hls, { row = state.jql_line, start_col = 2, virt_text = { { "│", "Comment" } }, virt_text_pos = "overlay" })
+
+    -- Virtual text hint for JQL input
+    table.insert(hls, {
+      row = state.jql_line,
+      start_col = 0,
+      virt_text = {
+        { "󰋖 Press ", "JiraHelp" },
+        { "<CR>", "JiraKey" },
+        { " to edit query ", "JiraHelp" }
+      },
+      virt_text_pos = "right_align"
     })
+    table.insert(header_lines, "    ")
+    -- Border for empty line
+    table.insert(hls, { row = #header_lines - 1, start_col = 2, virt_text = { { "│", "Comment" } }, virt_text_pos = "overlay" })
+
+    -- Saved Queries Header
+    local sq_line = "    󱔗 Saved Queries:"
+    table.insert(header_lines, sq_line)
+    local sq_row = #header_lines - 1
+    table.insert(hls, { row = sq_row, start_col = 4, end_col = -1, hl = "Title" })
+    -- Border for SQ header
+    table.insert(hls, { row = sq_row, start_col = 2, virt_text = { { "│", "Comment" } }, virt_text_pos = "overlay" })
+    
+    -- Virtual text hint for Saved Queries
+    table.insert(hls, {
+      row = sq_row,
+      start_col = 0,
+      virt_text = {
+        { "(Press ", "JiraHelp" },
+        { "<CR>", "JiraKey" },
+        { " to apply) ", "JiraHelp" }
+      },
+      virt_text_pos = "right_align"
+    })
+    
+    -- Saved Queries List
+    local config = require("jira.config")
+    local queries = config.options.queries or {}
+    local query_names = {}
+    for name, _ in pairs(queries) do table.insert(query_names, name) end
+    table.sort(query_names)
+
+    state.query_map = {}
+    for i, name in ipairs(query_names) do
+      local is_active = (state.current_query == name)
+      local line = string.format("      (%d) %s", i, name)
+      local row = #header_lines
+      table.insert(header_lines, line)
+      state.query_map[row] = name
+      
+      -- Border for item
+      table.insert(hls, { row = row, start_col = 2, virt_text = { { "│", "Comment" } }, virt_text_pos = "overlay" })
+
+      table.insert(hls, { row = row, start_col = 6, end_col = 9, hl = "Special" })
+      table.insert(hls, { row = row, start_col = 10, end_col = -1, hl = is_active and "JiraSubTabActive" or "Comment" })
+    end
+    table.insert(header_lines, "    ")
   end
+
+  api.nvim_buf_set_option(state.buf, "modifiable", true)
+  api.nvim_buf_set_lines(state.buf, 0, -1, false, header_lines)
+  api.nvim_buf_set_option(state.buf, "modifiable", false)
+
+  for _, h in ipairs(hls) do
+    local opts = {}
+    if h.hl then opts.hl_group = h.hl end
+    if h.end_col and h.end_col ~= -1 then
+      opts.end_col = h.end_col
+    end
+    if h.virt_text then
+      opts.virt_text = h.virt_text
+      opts.virt_text_pos = h.virt_text_pos
+    end
+    api.nvim_buf_set_extmark(state.buf, state.ns, h.row, h.start_col, opts)
+  end
+
+  -- Mode display on the right
+  local mode_str = string.format("[%s Mode]", state.mode or "Normal")
+  api.nvim_buf_set_extmark(state.buf, state.ns, 0, 0, {
+    virt_text = { { mode_str, "Special" } },
+    virt_text_pos = "right_align",
+  })
 end
 
 function M.render_help(view)
   render_header(view)
   local help_content = {
-    { k = "o, <CR>, <Tab>", d = "Toggle Node (Expand/Collapse)" },
-    { k = "S", d = "Switch to Active Sprint" },
-    { k = "B", d = "Switch to Backlog" },
-    { k = "J", d = "Custom JQL Search" },
-    { k = "K", d = "Show Issue Details (Popup)" },
+    { section = "Global" },
+    { k = "q", d = "Close Board" },
+    { k = "a", d = "Switch between NORMAL and ACTION mode" },
+    
+    { section = "Normal Mode" },
+    { k = "<Tab>", d = "Toggle Node (Expand/Collapse)" },
+    { k = "S, J, H", d = "Switch View (Sprint, JQL, Help)" },
+    { k = "K", d = "Quick Issue Details (Popup)" },
     { k = "m", d = "Read Task as Markdown" },
     { k = "gx", d = "Open Task in Browser" },
     { k = "r", d = "Refresh current view" },
-    { k = "H", d = "Show this Help" },
-    { k = "q", d = "Close Board" },
+
+    { section = "Action Mode (Press 'a' to enter)" },
+    { k = "s", d = "Update Status (Planned)" },
+    { k = "c", d = "Add Comment (Planned)" },
+    { k = "l", d = "Log Time (Planned)" },
+    { k = "e", d = "Edit Issue (Planned)" },
+    { k = "Esc, a", d = "Back to Normal Mode" },
   }
 
   local lines = { "" }
   local hls = {}
-
-  table.insert(lines, "  Keymaps:")
-  table.insert(lines, "")
+  
+  -- Calculate start row based on header size
+  local query_count = 0
+  if view == "JQL" then
+    local config = require("jira.config")
+    for _ in pairs(config.options.queries or {}) do query_count = query_count + 1 end
+  end
+  local start_row = (view == "JQL") and (6 + query_count) or 2
 
   for _, item in ipairs(help_content) do
-    local line = string.format("    %-18s %s", item.k, item.d)
-    table.insert(lines, line)
-    local buf_row = 2 + #lines - 1
+    if item.section then
+      table.insert(lines, "")
+      table.insert(lines, "  " .. item.section .. ":")
+      table.insert(hls, { row = start_row + #lines - 1, start_col = 2, hl = "Title" })
+    else
+      local line = string.format("    %-18s %s", item.k, item.d)
+      table.insert(lines, line)
+      local buf_row = start_row + #lines - 1
 
-    table.insert(hls, {
-      row = buf_row,
-      start_col = 4,
-      end_col = 4 + #item.k,
-      hl = "Special",
-    })
+      table.insert(hls, {
+        row = buf_row,
+        start_col = 4,
+        end_col = 4 + #item.k,
+        hl = "Special",
+      })
+    end
   end
 
-  api.nvim_buf_set_lines(state.buf, 2, -1, false, lines)
+  api.nvim_buf_set_option(state.buf, "modifiable", true)
+  api.nvim_buf_set_lines(state.buf, start_row, -1, false, lines)
+  api.nvim_buf_set_option(state.buf, "modifiable", false)
+
   for _, h in ipairs(hls) do
-    api.nvim_buf_set_extmark(state.buf, state.ns, h.row, h.start_col, {
-      end_col = h.end_col,
-      hl_group = h.hl,
-    })
+    local opts = { hl_group = h.hl }
+    if h.end_col and h.end_col ~= -1 then
+      opts.end_col = h.end_col
+    end
+    api.nvim_buf_set_extmark(state.buf, state.ns, h.row, h.start_col, opts)
   end
 end
 
@@ -343,7 +457,14 @@ end
 ---@return number
 function M.render_issue_tree(issues, view, depth, row)
   depth = depth or 1
-  row = row or 2
+  if not row then
+    local query_count = 0
+    if view == "JQL" then
+      local config = require("jira.config")
+      for _ in pairs(config.options.queries or {}) do query_count = query_count + 1 end
+    end
+    row = (view == "JQL") and (6 + query_count) or 2
+  end
 
   if depth == 1 then
     state.line_map = {}
@@ -354,7 +475,9 @@ function M.render_issue_tree(issues, view, depth, row)
 
   for i, node in ipairs(issues) do
     if depth == 1 and i > 1 then
+      api.nvim_buf_set_option(state.buf, "modifiable", true)
       api.nvim_buf_set_lines(state.buf, row, row + 1, false, { "" })
+      api.nvim_buf_set_option(state.buf, "modifiable", false)
       row = row + 1
     end
 
@@ -375,7 +498,9 @@ end
 -- ---------------------------------------------
 function M.clear(buf)
   api.nvim_buf_clear_namespace(buf, state.ns, 0, -1)
+  api.nvim_buf_set_option(buf, "modifiable", true)
   api.nvim_buf_set_lines(buf, 0, -1, false, {})
+  api.nvim_buf_set_option(buf, "modifiable", false)
 end
 
 return M
