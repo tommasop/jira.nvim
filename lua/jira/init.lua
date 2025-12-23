@@ -132,6 +132,7 @@ M.setup_keymaps = function()
   vim.keymap.set("n", "m", function() require("jira").read_task() end, opts)
   vim.keymap.set("n", "gx", function() require("jira").open_in_browser() end, opts)
   vim.keymap.set("n", "s", function() require("jira").change_status() end, opts)
+  vim.keymap.set("n", "a", function() require("jira").change_assignee() end, opts)
 end
 
 M.load_view = function(project_key, view_name)
@@ -282,6 +283,63 @@ M.change_status = function()
         end)
       end)
     end)
+  end)
+end
+
+M.change_assignee = function()
+  local cursor = api.nvim_win_get_cursor(state.win)
+  local row = cursor[1] - 1
+  local node = state.line_map[row]
+  if not node or not node.key then return end
+
+  local jira_api = require("jira.jira-api.api")
+  local choices = { "Assign to Me", "Unassign" }
+
+  vim.ui.select(choices, { prompt = "Change Assignee for " .. node.key .. ":" }, function(choice)
+    if not choice then return end
+
+    if choice == "Assign to Me" then
+      ui.start_loading("Fetching your account info...")
+      jira_api.get_myself(function(me, m_err)
+        vim.schedule(function()
+          ui.stop_loading()
+          if m_err or not me or not me.accountId then
+            vim.notify("Error fetching account info: " .. (m_err or "Unknown error"), vim.log.levels.ERROR)
+            return
+          end
+
+          ui.start_loading("Assigning " .. node.key .. " to you...")
+          jira_api.assign_issue(node.key, me.accountId, function(success, a_err)
+            vim.schedule(function()
+              ui.stop_loading()
+              if a_err then
+                vim.notify("Error assigning issue: " .. a_err, vim.log.levels.ERROR)
+                return
+              end
+              vim.notify("Assigned " .. node.key .. " to you", vim.log.levels.INFO)
+              local cache_key = get_cache_key(state.project_key, state.current_view)
+              state.cache[cache_key] = nil
+              M.load_view(state.project_key, state.current_view)
+            end)
+          end)
+        end)
+      end)
+    elseif choice == "Unassign" then
+      ui.start_loading("Unassigning " .. node.key .. "...")
+      jira_api.assign_issue(node.key, "-1", function(success, a_err)
+        vim.schedule(function()
+          ui.stop_loading()
+          if a_err then
+            vim.notify("Error unassigning issue: " .. a_err, vim.log.levels.ERROR)
+            return
+          end
+          vim.notify("Unassigned " .. node.key, vim.log.levels.INFO)
+          local cache_key = get_cache_key(state.project_key, state.current_view)
+          state.cache[cache_key] = nil
+          M.load_view(state.project_key, state.current_view)
+        end)
+      end)
+    end
   end)
 end
 

@@ -83,6 +83,7 @@ If you don't provide a project key, you will be prompted to enter one.
 - [x] Backlog (via JQL Dashboard)
 - [x] Custom JQL & Saved Queries
 - [x] Change status
+- [x] Change assignee
 - [ ] Log time
 - [ ] Comment
 - [ ] Update

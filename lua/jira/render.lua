@@ -387,6 +387,7 @@ function M.render_help(view)
     { k = "m", d = "Read Task as Markdown" },
     { k = "gx", d = "Open Task in Browser" },
     { k = "s", d = "Update Status" },
+    { k = "a", d = "Change Assignee" },
   }
 
   local lines = { "" }

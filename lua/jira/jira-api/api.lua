@@ -146,6 +146,26 @@ function M.add_worklog(issue_key, time_spent, callback)
   end)
 end
 
+-- Assign an issue to a user
+function M.assign_issue(issue_key, account_id, callback)
+  local data = {
+    accountId = account_id,
+  }
+
+  curl_request("PUT", "/rest/api/3/issue/" .. issue_key .. "/assignee", data, function(result, err)
+    if err then
+      if callback then callback(nil, err) end
+      return
+    end
+    if callback then callback(true, nil) end
+  end)
+end
+
+-- Get current user details
+function M.get_myself(callback)
+  curl_request("GET", "/rest/api/3/myself", nil, callback)
+end
+
 -- Get issue details
 function M.get_issue(issue_key, callback)
   curl_request("GET", "/rest/api/3/issue/" .. issue_key, nil, callback)
