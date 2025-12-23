@@ -344,6 +344,7 @@ function M.open_jql_input(default, callback)
     local lines = api.nvim_buf_get_lines(buf, 0, -1, false)
     local input = table.concat(lines, " "):gsub("^%s*(.-)%s*$", "%1")
     api.nvim_win_close(win, true)
+    vim.api.nvim_command("stopinsert")
     if input ~= "" then
       callback(input)
     end

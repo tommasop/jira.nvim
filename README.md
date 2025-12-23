@@ -36,18 +36,30 @@ require('jira').setup({
 })
 ```
 
-### Options
+## Usage
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `jira.base` | Your Jira domain URL | `""` |
-| `jira.email` | Your Jira account email | `""` |
-| `jira.token` | Jira API Token | `""` |
-| `jira.limit` | Max tasks to fetch per query | `200` |
-| `queries` | Table of named JQL strings | (Backlog, My Tasks) |
-| `projects` | Map of project keys to custom fields | `{}` |
-| `story_point_field` | Default SP field (in project config) | `customfield_10035` |
-| `acceptance_criteria_field` | Default AC field (in project config) | `customfield_10016` |
+Run the following command to open the Jira board:
+
+```vim
+:Jira <PROJECT_KEY>
+```
+
+If you don't provide a project key, you will be prompted to enter one.
+
+### Keybindings (Normal Mode)
+
+| Key | Action |
+| --- | --- |
+| `<Tab>` | Toggle Node (Expand/Collapse) |
+| `S` | Switch to Active Sprint |
+| `J` | Switch to JQL Dashboard |
+| `H` | Switch to Help |
+| `K` | Quick Issue Details (Popup) |
+| `m` | Read Task as Markdown |
+| `gx` | Open Task in Browser |
+| `r` | Refresh current view |
+| `a` | Switch to Action Mode |
+| `q` | Close Board |
 
 ## Features (AI generated)
 
