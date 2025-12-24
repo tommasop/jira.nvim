@@ -110,9 +110,9 @@ function M.open(issue_key, initial_tab)
 
         -- Create UI
         local buf = vim.api.nvim_create_buf(false, true)
-        vim.api.nvim_buf_set_option_value("filetype", "markdown", { buf = buf })
-        vim.api.nvim_buf_set_option_value("buftype", "nofile", { buf = buf })
-        vim.api.nvim_buf_set_option_value("bufhidden", "wipe", { buf = buf })
+        vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
+        vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+        vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
         vim.api.nvim_buf_set_name(buf, "Jira: " .. issue.key)
 
         local width = math.floor(vim.o.columns * 0.8)

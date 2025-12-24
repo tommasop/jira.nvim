@@ -157,7 +157,7 @@ end
 ---@param adf? table
 ---@return string
 function M.adf_to_markdown(adf)
-  if not adf then
+  if not adf or adf == vim.NIL then
     return ""
   end
   return parse_adf(adf)
