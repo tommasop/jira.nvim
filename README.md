@@ -113,6 +113,18 @@ If you don't provide a project key, you will be prompted to enter one.
 
 ---
 
+## Development
+
+### Running Tests
+
+Requires [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) to be installed.
+
+```bash
+nvim --headless -u NONE -c "PlenaryBustedDirectory tests/jira/ {minimal_init = 'tests/minimal_init.lua'}"
+```
+
+---
+
 ## TODO
 - [x] Jira sprint board
 - [x] Config
