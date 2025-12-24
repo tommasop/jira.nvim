@@ -403,9 +403,10 @@ function M.render_help(view)
     { k = "K", d = "Quick Issue Details (Popup)" },
     { k = "m", d = "Read Task as Markdown" },
     { k = "gx", d = "Open Task in Browser" },
-    { k = "s", d = "Update Status" },
-    { k = "a", d = "Change Assignee" },
-    { k = "t", d = "Add time" },
+    { k = "gs", d = "Update Status" },
+    { k = "ga", d = "Change Assignee" },
+    { k = "gw", d = "Add time" },
+    { k = "gb", d = "Checkout/Create Branch" },
   }
 
   local lines = { "" }

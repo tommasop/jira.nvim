@@ -5,6 +5,7 @@ local M = {}
 ---@field key string
 ---@field summary string
 ---@field status string
+---@field type string
 ---@field parent? string
 ---@field assignee? string
 ---@field priority? string
