@@ -12,11 +12,11 @@ test:
 # installs `mini.nvim`, used for both the tests and documentation.
 deps:
 	@mkdir -p deps
-	git clone --depth 1 https://github.com/echasnovski/mini.nvim deps/mini.nvim
+	[ -d deps/mini.nvim ] || git clone --depth 1 https://github.com/echasnovski/mini.nvim deps/mini.nvim
 
 # installs deps before running tests, useful for the CI.
 test-ci: deps test
 
 # performs a lint check and fixes issue if possible, following the config in `stylua.toml`.
 lint:
-	stylua . --check
+	stylua . --check -g '*.lua' -g '!deps/'
