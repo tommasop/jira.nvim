@@ -7,6 +7,11 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI
 <img width="3022" height="2162" alt="image" src="https://github.com/user-attachments/assets/611cdfb4-29ed-4d59-8362-74c142e81257" />
 
 
+> [!NOTE]
+> Disucssion: How do you want to create, edit the jira ticket in this plugin ?
+> https://github.com/letieu/jira.nvim/discussions/1
+
+
 ## Configuration
 
 ```lua
