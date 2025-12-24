@@ -30,12 +30,13 @@ function M.execute(args)
     end
 
     issue_view.open(key, tab)
-  else
-    -- Default: Open Board
-    -- Usage: :Jira [project-key]
-    local project_key = parts[1]
-    require("jira.board").open(project_key)
+    return
   end
+
+  -- Default: Open Board
+  -- Usage: :Jira [project-key]
+  local project_key = parts[1]
+  require("jira.board").open(project_key)
 end
 
 return M

@@ -28,5 +28,7 @@ function M.setup(opts)
   })
 end
 
+M.open = command.execute
+
 return M
 -- vim: set ts=2 sts=2 sw=2 et ai si sta:
