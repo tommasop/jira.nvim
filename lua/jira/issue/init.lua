@@ -80,6 +80,7 @@ local M = {}
 ---@param issue_key string
 ---@param initial_tab? string
 function M.open(issue_key, initial_tab)
+  ui.setup_static_highlights()
   ui.start_loading("Fetching task " .. issue_key .. "...")
 
   -- Reset state

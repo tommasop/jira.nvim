@@ -8,8 +8,8 @@ local M = {}
 function M.render_header()
   local tabs = {
     { name = "Description", key = "D", id = "description" },
-    { name = "Comments", key = "C", id = "comments" },
-    { name = "Help", key = "H", id = "help" },
+    { name = "Comments",    key = "C", id = "comments" },
+    { name = "Help",        key = "H", id = "help" },
   }
 
   local header = "  "
@@ -29,7 +29,7 @@ function M.render_header()
     })
   end
 
-  local lines = { header, ("─"):rep(40), "" }
+  local lines = { header, "" }
 
   -- Add issue summary header
   local fields = state.issue.fields or {}
@@ -128,13 +128,13 @@ function M.render_content()
   elseif state.active_tab == "help" then
     local help_content = {
       { section = "Navigation" },
-      { k = "D", d = "Switch to Description" },
-      { k = "C", d = "Switch to Comments" },
-      { k = "H", d = "Switch to Help" },
-      { k = "q", d = "Close Window" },
+      { k = "D",               d = "Switch to Description" },
+      { k = "C",               d = "Switch to Comments" },
+      { k = "H",               d = "Switch to Help" },
+      { k = "q",               d = "Close Window" },
 
       { section = "Actions" },
-      { k = "c", d = "Add Comment (in Comments tab)" },
+      { k = "c",               d = "Add Comment (in Comments tab)" },
     }
 
     for _, item in ipairs(help_content) do
