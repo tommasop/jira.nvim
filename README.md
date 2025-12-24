@@ -15,7 +15,7 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI.
 > Disucssion: How do you want to create, edit the jira ticket in this plugin?
 > https://github.com/letieu/jira.nvim/discussions/1
 
-## Features (AI generated)
+## Features
 
 - 📋 View active sprint tasks
 - 👥 Query tasks by custom JQL
@@ -24,8 +24,8 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI.
 - ⏱️ Log time on tasks
 - 👤 Assign tasks
 - 🎨 Git integration
-- 🎨 Edit task
 - 🎨 Comment
+- 🎨 Create, edit task
 - ⏱️ Work report
 
 ---
@@ -136,9 +136,8 @@ nvim --headless -u NONE -c "PlenaryBustedDirectory tests/jira/ {minimal_init = '
 - [x] Change status
 - [x] Change assignee
 - [x] Log time
-- [ ] **WORKING ON**: Task info view mode
-- [ ] Comment
-- [ ] Edit task
+- [x] Comment
+- [ ] Create, Edit task
 - [ ] Update UI when terminal size change
 ...
 
