@@ -1,13 +1,21 @@
+---@class JiraData
+---@field jql string
+---@field fields string[]
+---@field nextPageToken string
+---@field maxResults integer
+
 -- api.lua: Jira REST API client using curl
 local config = require("jira.common.config")
 local util = require("jira.common.util")
 
 -- Get environment variables
+---@return JiraAuthOptions auth_opts
 local function get_env()
   return config.options.jira
 end
 
 -- Validate environment variables
+---@return boolean valid
 local function validate_env()
   local env = get_env()
   if not env.base or not env.email or not env.token then
@@ -18,6 +26,9 @@ local function validate_env()
 end
 
 ---Execute curl command asynchronously
+---@param method string
+---@param endpoint string
+---@param data? table
 ---@param callback? fun(T?: table, err?: string)
 local function curl_request(method, endpoint, data, callback)
   if not validate_env() then
@@ -84,13 +95,13 @@ local function curl_request(method, endpoint, data, callback)
       -- Parse JSON
       local ok, result = pcall(vim.json.decode, response)
       if not ok then
-        if callback then
+        if callback and vim.is_callable(callback) then
           callback(nil, "Failed to parse JSON: " .. tostring(result) .. " | Resp: " .. response)
         end
         return
       end
 
-      if callback then
+      if callback and vim.is_callable(callback) then
         callback(result, nil)
       end
     end,
@@ -101,9 +112,14 @@ end
 local M = {}
 
 -- Search for issues using JQL
+---@param jql string
+---@param fields? string[]
+---@param page_token? string
+---@param max_results? integer
+---@param callback? fun(T?: table, err?: string)
+---@param project_key? string
 function M.search_issues(jql, page_token, max_results, fields, callback, project_key)
-  local p_config = config.get_project_config(project_key)
-  local story_point_field = p_config.story_point_field
+  local story_point_field = config.get_project_config(project_key).story_point_field
   fields = fields
     or {
       "summary",
@@ -145,30 +161,25 @@ end
 
 ---Transition an issue to a new status
 ---@param issue_key string
----@param callback? fun(cond: boolean|nil, err: string|nil)
+---@param callback? fun(cond?: boolean, err?: string)
 function M.transition_issue(issue_key, transition_id, callback)
-  local data = {
-    transition = {
-      id = transition_id,
-    },
-  }
-
+  local data = { transition = { id = transition_id } }
   curl_request("POST", "/rest/api/3/issue/" .. issue_key .. "/transitions", data, function(_, err)
     if err then
-      if callback then
+      if callback and vim.is_callable(callback) then
         callback(nil, err)
       end
       return
     end
-    if callback then
+    if callback and vim.is_callable(callback) then
       callback(true, nil)
     end
   end)
 end
 
 -- Add worklog to an issue
----@param comment string|function|nil
----@param callback function
+---@param comment? string|fun(cond?: boolean, err?: string)
+---@param callback? fun(cond?: boolean, err?: string)
 function M.add_worklog(issue_key, time_spent, comment, callback)
   -- Support previous signature: (issue_key, time_spent, callback)
   if type(comment) == "function" and vim.is_callable(comment) then
@@ -200,18 +211,19 @@ function M.add_worklog(issue_key, time_spent, comment, callback)
 
   curl_request("POST", "/rest/api/3/issue/" .. issue_key .. "/worklog", data, function(_, err)
     if err then
-      if callback then
+      if callback and vim.is_callable(callback) then
         callback(nil, err)
       end
       return
     end
-    if callback then
+    if callback and vim.is_callable(callback) then
       callback(true, nil)
     end
   end)
 end
 
 -- Assign an issue to a user
+---@param callback? fun(cond?: boolean, err?: string)
 function M.assign_issue(issue_key, account_id, callback)
   local data = {
     accountId = account_id,
@@ -219,12 +231,12 @@ function M.assign_issue(issue_key, account_id, callback)
 
   curl_request("PUT", "/rest/api/3/issue/" .. issue_key .. "/assignee", data, function(_, err)
     if err then
-      if callback then
+      if callback and vim.is_callable(callback) then
         callback(nil, err)
       end
       return
     end
-    if callback then
+    if callback and vim.is_callable(callback) then
       callback(true, nil)
     end
   end)

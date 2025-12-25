@@ -13,7 +13,7 @@
 ---@field query_map table<string,string> -- named queries -> JQL
 ---@field jql_line integer|nil       -- buffer line containing editable JQL
 
----@type JiraState
+---@type JiraListEditState
 local state = {
   buf = nil,
   win = nil,
