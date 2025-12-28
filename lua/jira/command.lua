@@ -48,14 +48,20 @@ function M.execute(args)
 
   if cmd == "create" then
     local project_key = parts[2]
-    require("jira.create").open(project_key:upper())
+    if (project_key) then
+      project_key = project_key:upper()
+    end
+    require("jira.create").open(project_key)
     return
   end
 
   -- Default: Open Board
   -- Usage: :Jira [project-key]
   local project_key = parts[1]
-  require("jira.board").open(project_key:upper())
+  if (project_key) then
+    project_key = project_key:upper()
+  end
+  require("jira.board").open(project_key)
 end
 
 return M
