@@ -226,6 +226,8 @@ function M.open(issue_key)
       col = (vim.o.columns - width) / 2,
       style = "minimal",
       border = "rounded",
+      title = " Edit Issue: " .. issue.key .. " (Save to update) ",
+      title_pos = "center",
     })
 
     state.buf = buf

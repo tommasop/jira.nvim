@@ -247,6 +247,8 @@ function M.open(issue_key, initial_tab)
           col = (vim.o.columns - width) / 2,
           style = "minimal",
           border = "rounded",
+          title = " " .. issue.key .. " ",
+          title_pos = "center",
         })
 
         state.buf = buf
