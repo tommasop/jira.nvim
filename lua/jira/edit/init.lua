@@ -68,15 +68,15 @@ local function render()
   local ns = vim.api.nvim_create_namespace("JiraEdit")
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
   vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
-    virt_text = { { "  (Edit summary above)", "Comment" } },
+    virt_text = { { "  Summary after '#'", "Comment" } },
     virt_text_pos = "eol",
   })
   vim.api.nvim_buf_set_extmark(buf, ns, 2, 0, {
-    virt_text = { { "  (Metadata - edit values)", "Comment" } },
+    virt_text = { { "  Metadata - edit values", "Comment" } },
     virt_text_pos = "eol",
   })
   vim.api.nvim_buf_set_extmark(buf, ns, 7, 0, {
-    virt_text = { { "  (Description - Markdown supported)", "Comment" } },
+    virt_text = { { "  Description bellow '---'", "Comment" } },
     virt_text_pos = "eol",
   })
 

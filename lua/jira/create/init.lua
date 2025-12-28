@@ -16,7 +16,7 @@ local function render_template()
   local lines = {}
   table.insert(lines, "# Summary")
   table.insert(lines, "")
-  
+
   local type_default = "Task"
   if state.parent_key then
     type_default = "Sub-task"
@@ -24,19 +24,19 @@ local function render_template()
 
   table.insert(lines, "**Type**: " .. type_default)
   table.insert(lines, "**Priority**: Medium")
-  
+
   if state.parent_key then
     table.insert(lines, "**Parent**: " .. state.parent_key)
   else
     table.insert(lines, "**Parent**: ")
   end
-  
+
   local project_key = state.project_key
   local sp_field = config.get_project_config(project_key).story_point_field
   if sp_field then
     table.insert(lines, "**Story Points**: ")
   end
-  
+
   table.insert(lines, "**Estimate**: ")
   table.insert(lines, "")
   table.insert(lines, "---")
@@ -46,20 +46,20 @@ local function render_template()
   if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
     vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
     vim.bo[state.buf].modified = false
-    
+
     -- Add instructions
     local ns = vim.api.nvim_create_namespace("JiraCreate")
     vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
     vim.api.nvim_buf_set_extmark(state.buf, ns, 0, 0, {
-      virt_text = { { "  (Enter summary)", "Comment" } },
+      virt_text = { { "  Summary after '#'", "Comment" } },
       virt_text_pos = "eol",
     })
     vim.api.nvim_buf_set_extmark(state.buf, ns, 2, 0, {
-      virt_text = { { "  (Edit metadata)", "Comment" } },
+      virt_text = { { "  Metadata - edit values", "Comment" } },
       virt_text_pos = "eol",
     })
-    vim.api.nvim_buf_set_extmark(state.buf, ns, 7, 0, {
-      virt_text = { { "  (Enter description below)", "Comment" } },
+    vim.api.nvim_buf_set_extmark(state.buf, ns, 8, 0, {
+      virt_text = { { "  Description bellow '---'", "Comment" } },
       virt_text_pos = "eol",
     })
   end
@@ -93,7 +93,7 @@ local function on_save()
     elseif not in_description then
       local t_val = line:match("^%*%*Type%*%*:?%s*(.*)")
       if t_val then issue_type = common_util.strim(t_val) end
-      
+
       local p_val = line:match("^%*%*Priority%*%*:?%s*(.*)")
       if p_val then priority = common_util.strim(p_val) end
 
@@ -148,7 +148,7 @@ local function on_save()
     end
   end
 
-  jira_api.create_issue(fields, function(result, err) 
+  jira_api.create_issue(fields, function(result, err)
     common_ui.stop_loading()
     if err then
       vim.notify("Creation failed: " .. err, vim.log.levels.ERROR)
@@ -162,18 +162,22 @@ local function on_save()
       if state.win and vim.api.nvim_win_is_valid(state.win) then
         vim.api.nvim_win_close(state.win, true)
       end
-      
+
       -- Refresh board if available
-      pcall(function() require("jira.board").refresh_view() end)
+      vim.defer_fn(function()
+        pcall(function()
+          require("jira.board").refresh_view()
+        end)
+      end, 1200)
     end
   end)
 end
 
 function M.open(project_key, parent_key)
   if not project_key or project_key == "" then
-     project_key = vim.fn.input("Project Key: ")
+    project_key = vim.fn.input("Project Key: ")
   end
-  
+
   if not project_key or project_key == "" then
     vim.notify("Project key required", vim.log.levels.ERROR)
     return
