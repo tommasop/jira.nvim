@@ -2,7 +2,7 @@
 local M = {}
 
 ---@type string[]
-M.SUBCOMMANDS = { "info" }
+M.SUBCOMMANDS = { "info", "edit" }
 
 ---@param args string
 function M.execute(args)
@@ -30,6 +30,19 @@ function M.execute(args)
     end
 
     issue_view.open(key, tab)
+    return
+  end
+
+  if cmd == "edit" then
+    local key = parts[2]
+
+    if not key then
+      vim.notify("Usage: :Jira edit <issue-key> [comment|description]", vim.log.levels.ERROR)
+      return
+    end
+
+    local issue_edit = require("jira.edit")
+    issue_edit.open(key)
     return
   end
 

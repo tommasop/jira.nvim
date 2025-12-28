@@ -173,6 +173,7 @@ function M.render_content()
       { k = "q", d = "Close Window" },
 
       { section = "Actions" },
+      { k = "i", d = "Edit Description (in Description tab)" },
       { k = "i", d = "Add Comment (in Comments tab)" },
       { k = "r", d = "Edit Comment (in Comments tab)" },
     }

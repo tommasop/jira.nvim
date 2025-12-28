@@ -151,6 +151,9 @@ function M.setup_keymaps()
   vim.keymap.set("n", "gd", function()
     require("jira.board").read_task()
   end, opts)
+  vim.keymap.set("n", "ge", function()
+    require("jira.board").edit_issue()
+  end, opts)
   vim.keymap.set("n", "gx", function()
     require("jira.board").open_in_browser()
   end, opts)
@@ -404,6 +407,15 @@ function M.read_task()
   end
 
   require("jira.issue").open(node.key)
+end
+
+function M.edit_issue()
+  local node = helper.get_node_at_cursor()
+  if not node or not node.key then
+    return
+  end
+
+  require("jira.edit").open(node.key)
 end
 
 function M.log_time()
