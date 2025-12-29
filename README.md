@@ -106,11 +106,28 @@ Run the following command to open the Jira board:
 
 If you don't provide a project key, you will be prompted to enter one.
 
-### Keybindings (Normal Mode)
+### Keybindings
 
-| Key  | Action    |
-|------|-----------|
-| `H`  | Show help |
+#### Help
+- `H` — Show help
+
+#### Navigation & View
+- `<Tab>` — Toggle node (Expand / Collapse)
+- `S`, `J`, `H` — Switch view (Sprint, JQL, Help)
+- `q` — Close board
+- `r` — Refresh current view
+
+#### Issue Actions (In board)
+- `i` — Create issue / sub-task (under cursor)
+- `K` — Quick issue details (popup)
+- `gd` — Read task as info
+- `ge` — Edit task
+- `gx` — Open task in browser
+- `gs` — Update status
+- `ga` — Change assignee
+- `gw` — Add time
+- `gb` — Checkout / create branch
+- `go` — Show child issues (sub-tasks)
 
 ---
 
