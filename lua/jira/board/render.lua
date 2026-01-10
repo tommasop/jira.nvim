@@ -395,6 +395,8 @@ function M.render_help(view)
   local help_content = {
     { section = "Navigation & View" },
     { k = "<Tab>", d = "Toggle Node (Expand/Collapse)" },
+    { k = "zR", d = "Expand All Nodes" },
+    { k = "zM", d = "Collapse All Nodes" },
     { k = "S, J, H", d = "Switch View (Sprint, JQL, Help)" },
     { k = "q", d = "Close Board" },
     { k = "r", d = "Refresh current view" },

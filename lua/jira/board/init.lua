@@ -23,6 +23,32 @@ function M.refresh_view()
   M.load_view(state.project_key, state.current_view)
 end
 
+local function set_expanded_recursive(nodes, expanded)
+  for _, node in ipairs(nodes) do
+    if node.children and #node.children > 0 then
+      node.expanded = expanded
+      set_expanded_recursive(node.children, expanded)
+    end
+  end
+end
+
+function M.set_all_expanded(expanded)
+  if not state.tree then
+    return
+  end
+  set_expanded_recursive(state.tree, expanded)
+
+  local cursor = api.nvim_win_get_cursor(state.win)
+  render.clear(state.buf)
+  render.render_issue_tree(state.tree, state.current_view)
+
+  local line_count = api.nvim_buf_line_count(state.buf)
+  if cursor[1] > line_count then
+    cursor[1] = line_count
+  end
+  api.nvim_win_set_cursor(state.win, cursor)
+end
+
 function M.toggle_node()
   local cursor = api.nvim_win_get_cursor(state.win)
   local node = helper.get_node_at_cursor()
@@ -132,6 +158,12 @@ function M.setup_keymaps()
   -- Navigation
   vim.keymap.set("n", "<Tab>", function()
     require("jira.board").toggle_node()
+  end, opts)
+  vim.keymap.set("n", "zR", function()
+    require("jira.board").set_all_expanded(true)
+  end, opts)
+  vim.keymap.set("n", "zM", function()
+    require("jira.board").set_all_expanded(false)
   end, opts)
   vim.keymap.set("n", "<CR>", function()
     require("jira.board").handle_cr()
