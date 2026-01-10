@@ -66,6 +66,8 @@ require('jira').setup({
     limit = 200,                                -- Global limit of tasks per view (default: 200)
   },
 
+  active_sprint_query = "project = '%s' AND sprint in openSprints() ORDER BY Rank ASC",
+
   -- Saved JQL queries for the JQL tab
   -- Use %s as a placeholder for the project key
   queries = {
