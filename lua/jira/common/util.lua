@@ -183,46 +183,82 @@ local function parse_adf(node)
     if not node.content or #node.content == 0 then
       return ""
     end
-    local md_table = {}
-    local col_widths = {}
-    for _, row in ipairs(node.content) do
-      local row_cells = {}
-      for _, cell in ipairs(row.content or {}) do
-        local cell_text = parse_adf(cell):gsub("\n$", "")
-        table.insert(row_cells, cell_text)
-        local len = #cell_text
-        col_widths[#row_cells] = math.max(col_widths[#row_cells] or 0, len)
+
+    local function get_cell_text(cell)
+      if not cell.content then
+        return ""
       end
-      if #row_cells > 0 then
-        table.insert(md_table, row_cells)
+      local texts = {}
+      for _, content_item in ipairs(cell.content) do
+        local text = parse_adf(content_item)
+        text = text:gsub("\n+$", ""):gsub("^\n+", "")
+        text = text:gsub("%s+", " ")
+        text = text:gsub("^%s+", ""):gsub("%s+$", "")
+        table.insert(texts, text)
+      end
+      return table.concat(texts, " ")
+    end
+
+    local rows = {}
+    for _, row in ipairs(node.content) do
+      if row.type == "tableRow" then
+        local row_cells = {}
+        for _, cell in ipairs(row.content or {}) do
+          table.insert(row_cells, get_cell_text(cell))
+        end
+        if #row_cells > 0 then
+          table.insert(rows, row_cells)
+        end
       end
     end
-    if #md_table == 0 then
+
+    if #rows == 0 then
       return ""
     end
-    local result = {}
-    for ri, row in ipairs(md_table) do
-      local row_str = "|"
-      for ci, cell in ipairs(row) do
-        local pad = col_widths[ci] or 0
-        row_str = row_str .. " " .. cell .. string.rep(" ", pad - #cell + 1) .. "|"
-      end
-      table.insert(result, row_str)
-      if ri == 1 then
-        local sep = "|"
-        for ci = 1, #col_widths do
-          sep = sep .. " " .. string.rep("-", col_widths[ci]) .. " |"
+
+    local col_count = 0
+    for _, row in ipairs(rows) do
+      col_count = math.max(col_count, #row)
+    end
+
+    local col_widths = {}
+    for ci = 1, col_count do
+      col_widths[ci] = 0
+      for _, row in ipairs(rows) do
+        if row[ci] then
+          col_widths[ci] = math.max(col_widths[ci], #row[ci])
         end
-        table.insert(result, sep)
       end
     end
+
+    local result = {}
+    for ri, row in ipairs(rows) do
+      local row_parts = {}
+      for ci = 1, col_count do
+        local cell_text = row[ci] or ""
+        local width = col_widths[ci]
+        local padding = width - #cell_text
+        table.insert(row_parts, cell_text .. string.rep(" ", padding + 1))
+      end
+      table.insert(result, "| " .. table.concat(row_parts, "| ") .. "|")
+
+      if ri == 1 and #rows > 1 then
+        local sep_parts = {}
+        for ci = 1, col_count do
+          local width = col_widths[ci]
+          table.insert(sep_parts, string.rep("-", width + 1))
+        end
+        table.insert(result, "|-" .. table.concat(sep_parts, "-|-") .. "-|")
+      end
+    end
+
     return table.concat(result, "\n") .. "\n\n"
   end
   if node.type == "tableRow" then
     return joined
   end
   if node.type == "tableCell" then
-    return joined .. "\n"
+    return joined
   end
   if node.type == "mediaSingle" then
     if node.content and node.content[1] and node.content[1].type == "image" then
@@ -509,6 +545,15 @@ function M.markdown_to_adf(text)
           code_language = nil
         end
         code_lines = {}
+      elseif h_level then
+        flush_paragraph()
+        flush_table()
+        current_node = nil
+        table.insert(doc.content, {
+          type = "heading",
+          attrs = { level = #h_level },
+          content = M.parse_inline_markdown(h_content),
+        })
       elseif hr then
         flush_paragraph()
         flush_table()
@@ -547,12 +592,9 @@ function M.markdown_to_adf(text)
       elseif not table_headers and line:match("^%s*```") then
         flush_paragraph()
         flush_table()
-        current_node = nil
-        table.insert(doc.content, {
-          type = "heading",
-          attrs = { level = #h_level },
-          content = M.parse_inline_markdown(h_content),
-        })
+        in_code_block = true
+        code_language = nil
+        code_lines = {}
       elseif task_content or task_done then
         flush_paragraph()
         flush_table()
