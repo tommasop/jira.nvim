@@ -80,6 +80,127 @@ T["util"]["markdown_to_adf"]["should handle multiple paragraphs"] = function()
   MiniTest.expect.equality(child.lua_get([[adf.content[2].content[1].text]]), "p2")
 end
 
+T["util"]["markdown_to_adf"]["should handle italic text"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("hello *world*")]])
+  child.lua([[content = adf.content[1].content]])
+  MiniTest.expect.equality(child.lua_get([[content[1].text]]), "hello ")
+  MiniTest.expect.equality(child.lua_get([[content[2].text]]), "world")
+  MiniTest.expect.equality(child.lua_get([[content[2].marks[1].type]]), "em")
+end
+
+T["util"]["markdown_to_adf"]["should handle inline code"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("use `code` here")]])
+  child.lua([[content = adf.content[1].content]])
+  MiniTest.expect.equality(child.lua_get([[content[1].text]]), "use ")
+  MiniTest.expect.equality(child.lua_get([[content[2].text]]), "code")
+  MiniTest.expect.equality(child.lua_get([[content[2].marks[1].type]]), "code")
+end
+
+T["util"]["markdown_to_adf"]["should handle strikethrough"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("~~deleted~~ text")]])
+  child.lua([[content = adf.content[1].content]])
+  MiniTest.expect.equality(child.lua_get([[content[1].text]]), "deleted")
+  MiniTest.expect.equality(child.lua_get([[content[1].marks[1].type]]), "strike")
+  MiniTest.expect.equality(child.lua_get([[content[2].text]]), " text")
+end
+
+T["util"]["markdown_to_adf"]["should handle horizontal rule"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("text\n\n---\n\nmore")]])
+  MiniTest.expect.equality(child.lua_get([[adf.content[2].type]]), "rule")
+end
+
+T["util"]["markdown_to_adf"]["should handle blockquote"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("> quoted text")]])
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].type]]), "blockquote")
+end
+
+T["util"]["markdown_to_adf"]["should handle task list"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("- [ ] pending\n- [x] done")]])
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].type]]), "taskList")
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].content[1].attrs.status]]), "pending")
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].content[2].attrs.status]]), "done")
+end
+
+T["util"]["markdown_to_adf"]["should handle table"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[adf = M.markdown_to_adf("| h1 | h2 |\n|---|---|\n| c1 | c2 |")]])
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].type]]), "table")
+  MiniTest.expect.equality(child.lua_get([[#adf.content[1].content]]), 2)
+end
+
+T["util"]["adf_to_markdown"] = MiniTest.new_set()
+
+T["util"]["adf_to_markdown"]["should convert task list to markdown"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[
+    adf = {
+      type = "doc",
+      version = 1,
+      content = {
+        {
+          type = "taskList",
+          content = {
+            {
+              type = "taskItem",
+              attrs = { status = "pending" },
+              content = { { type = "paragraph", content = { { type = "text", text = "todo" } } } }
+            },
+            {
+              type = "taskItem",
+              attrs = { status = "done" },
+              content = { { type = "paragraph", content = { { type = "text", text = "done" } } } }
+            }
+          }
+        }
+      }
+    }
+    md = M.adf_to_markdown(adf)
+  ]])
+  MiniTest.expect.equality(child.lua_get([[md:find("todo")]]), 4)
+  MiniTest.expect.equality(child.lua_get([[md:find("%[ %]")]]), 1)
+  MiniTest.expect.equality(child.lua_get([[md:find("%[x%]")]]), 15)
+end
+
+T["util"]["adf_to_markdown"]["should convert table to markdown"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[
+    adf = {
+      type = "doc",
+      version = 1,
+      content = {
+        {
+          type = "table",
+          content = {
+            {
+              type = "tableRow",
+              content = {
+                { type = "tableCell", content = { { type = "paragraph", content = { { type = "text", text = "h1" } } } } },
+                { type = "tableCell", content = { { type = "paragraph", content = { { type = "text", text = "h2" } } } } }
+              }
+            },
+            {
+              type = "tableRow",
+              content = {
+                { type = "tableCell", content = { { type = "paragraph", content = { { type = "text", text = "c1" } } } } },
+                { type = "tableCell", content = { { type = "paragraph", content = { { type = "text", text = "c2" } } } } }
+              }
+            }
+          }
+        }
+      }
+    }
+    md = M.adf_to_markdown(adf)
+  ]])
+  MiniTest.expect.equality(child.lua_get([[md:find("h1")]]), 3)
+  MiniTest.expect.equality(child.lua_get([[md:find("c1")]]), 20)
+end
+
 T["util"]["build_issue_tree"] = MiniTest.new_set()
 
 T["util"]["build_issue_tree"]["should handle flat list"] = function()
