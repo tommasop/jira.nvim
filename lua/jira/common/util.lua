@@ -368,6 +368,7 @@ function M.markdown_to_adf(text)
   local table_headers = nil
   local table_aligns = {}
   local table_rows = {}
+  local in_table_cell = false
 
   local function flush_paragraph()
     if current_node and current_node.type == "paragraph" then
@@ -543,7 +544,7 @@ function M.markdown_to_adf(text)
             table.insert(table_rows, cells)
           end
         end
-      elseif h_level then
+      elseif not table_headers and line:match("^%s*```") then
         flush_paragraph()
         flush_table()
         current_node = nil
