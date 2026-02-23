@@ -426,23 +426,22 @@ function M.markdown_to_adf(text)
     local in_cell = false
     local current_cell = ""
     local i = 1
-    while i <= #line do
-      local c = line:sub(i, i)
-      if c == "|" then
+    line = line:match("^%s*(.*)%s*$")
+    if line:sub(1, 1) == "|" then
+      line = line:sub(2)
+    end
+    while i <= #line + 1 do
+      if i > #line or line:sub(i, i) == "|" then
         if in_cell then
           table.insert(cells, current_cell:match("^%s*(.-)%s*$") or "")
           current_cell = ""
           in_cell = false
-        else
-          in_cell = true
         end
-      elseif in_cell then
-        current_cell = current_cell .. c
+      else
+        in_cell = true
+        current_cell = current_cell .. line:sub(i, i)
       end
       i = i + 1
-    end
-    if current_cell ~= "" or #cells > 0 then
-      table.insert(cells, current_cell:match("^%s*(.-)%s*$") or "")
     end
     return cells
   end
@@ -492,13 +491,13 @@ function M.markdown_to_adf(text)
       local code_lang = line:match("^%s*```(%w*)")
       local h_level, h_content = line:match("^(#+)%s+(.*)")
       local b_content = line:match("^%s*[%-*]%s+(.*)")
-      local task_content = line:match("^%s*[-*]%s+%[%s*%]%s+(.*)")
-      local task_done = line:match("^%s*[-*]%s+%[x%]%s+(.*)")
+      local task_content = line:match("^%s*[%-*]%s+%[%s*%]%s+(.*)")
+      local task_done = line:match("^%s*[%-*]%s+%[x%]%s+(.*)")
       local o_content = line:match("^%s*%d+%.%s+(.*)")
-      local hr = line:match("^%s*[-*_]{3,}%s*$")
+      local hr = line:match("^%s*[%-_*]+%s*$")
       local is_empty = (line == "")
       local bq_start = line:match("^>%s*(.*)")
-      local table_sep = line:match("^%|?[%-%s:]+%|")
+      local table_sep = line:match("^%|?[-%s:]+%|")
 
       if code_lang then
         flush_paragraph()
@@ -524,27 +523,25 @@ function M.markdown_to_adf(text)
         in_blockquote = true
       elseif is_empty then
         current_node = nil
-      elseif table_sep and not table_headers then
-      elseif table_headers == nil and line:match("^%|") then
-        flush_paragraph()
+      elseif line:match("^%|") then
         local cells = parse_table_row(line)
-        if #cells > 0 and not line:match("^%|?[-%s:]") then
-          table_headers = cells
-        end
-      elseif table_headers and line:match("^%|") then
-        local cells = parse_table_row(line)
-        if #cells > 0 and line:match("^%|?[-%s:]") then
-          for _, c in ipairs(cells) do
-            local align = "start"
-            if c:match("^:%s*-+$") or c:match("^-%s*:$") then
-              align = "center"
-            elseif c:match("^:%s*-$") then
-              align = "end"
+        if #cells > 0 then
+          if line:match("^%|?%s*[-:]+%s*%|") then
+            for _, c in ipairs(cells) do
+              local align = "start"
+              if c:match("^:%s*-+$") or c:match("^-+%s*:$") then
+                align = "center"
+              elseif c:match("^:%s*-+$") then
+                align = "end"
+              end
+              table.insert(table_aligns, align)
             end
-            table.insert(table_aligns, align)
+          elseif not table_headers then
+            flush_paragraph()
+            table_headers = cells
+          else
+            table.insert(table_rows, cells)
           end
-        elseif #cells > 0 then
-          table.insert(table_rows, cells)
         end
       elseif h_level then
         flush_paragraph()
