@@ -6,6 +6,7 @@
 ---@field issue? JiraIssueEdit
 ---@field buf? integer
 ---@field win? integer
+---@field valid_components? string[]
 local M = {}
 
 return M

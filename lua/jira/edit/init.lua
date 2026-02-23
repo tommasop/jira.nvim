@@ -6,6 +6,51 @@ local jira_api = require("jira.jira-api.api")
 
 local M = {}
 
+local function update_component_line(component_name)
+  if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
+  for i, line in ipairs(lines) do
+    if line:match("^%*%*Component%*%*:") then
+      local new_line = "**Component**: " .. component_name
+      vim.api.nvim_buf_set_lines(state.buf, i - 1, i, false, { new_line })
+
+      local ns = vim.api.nvim_create_namespace("JiraEditComponents")
+      vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
+      vim.api.nvim_buf_set_extmark(state.buf, ns, i - 1, 0, {
+        virt_text = { { "  Press <Enter> to select", "Comment" } },
+        virt_text_pos = "eol",
+      })
+
+      vim.bo[state.buf].modified = false
+      break
+    end
+  end
+end
+
+local function select_component()
+  if not state.valid_components or #state.valid_components == 0 then
+    vim.notify("No components available", vim.log.levels.WARN)
+    return
+  end
+
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local row = cursor[1] - 1
+  local line = vim.api.nvim_buf_get_lines(state.buf, row, row + 1, false)[1]
+
+  if line and line:match("^%*%*Component%*%*:") then
+    vim.ui.select(state.valid_components, {
+      prompt = "Select Component:",
+    }, function(choice)
+      if choice then
+        update_component_line(choice)
+      end
+    end)
+  end
+end
+
 local function render_issue_as_md(issue)
   local fields = issue.fields
   local lines = {}
@@ -48,6 +93,17 @@ local function render_issue_as_md(issue)
   else
     table.insert(lines, "**Labels**: ")
   end
+
+  -- Display component if it exists
+  local current_component = ""
+  if fields.components and type(fields.components) == "table" and #fields.components > 0 then
+    local component_names = {}
+    for _, comp in ipairs(fields.components) do
+      table.insert(component_names, comp.name)
+    end
+    current_component = table.concat(component_names, ", ")
+  end
+  table.insert(lines, ("**Component**: %s"):format(current_component))
 
   table.insert(lines, "")
   table.insert(lines, "---")
@@ -106,6 +162,7 @@ local function on_save()
   local estimate = nil
   local assignee_text = nil
   local labels = nil
+  local component = nil
 
   local desc_lines = {}
   local in_description = false
@@ -140,6 +197,11 @@ local function on_save()
       local labels_val = line:match("^%*%*Labels%*%*:?%s*(.*)")
       if labels_val then
         labels = common_util.strim(labels_val)
+      end
+
+      local comp_val = line:match("^%*%*Component%*%*:?%s*(.*)")
+      if comp_val then
+        component = common_util.strim(comp_val)
       end
     elseif in_description then
       table.insert(desc_lines, line)
@@ -189,6 +251,10 @@ local function on_save()
       end
     end
     fields.labels = label_list
+  end
+
+  if component and component ~= "" then
+    fields.components = { { name = component } }
   end
 
   if in_description then
@@ -299,6 +365,17 @@ function M.open(issue_key)
         on_save()
       end,
     })
+
+    vim.keymap.set("n", "<CR>", select_component, { buffer = buf, silent = true })
+
+    local project_key = issue.fields.project and issue.fields.project.key
+    if project_key then
+      jira_api.get_project_components(project_key, function(components, err)
+        if not err and components and #components > 0 then
+          state.valid_components = components
+        end
+      end)
+    end
   end)
 end
 

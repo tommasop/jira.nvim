@@ -80,6 +80,15 @@ function M.render_content()
     table.insert(lines, "**Assignee**: " .. assignee_name)
     table.insert(lines, "**Priority**: " .. (fields.priority and fields.priority.name or "None"))
 
+    -- Display components if they exist
+    if fields.components and type(fields.components) == "table" and #fields.components > 0 then
+      local component_names = {}
+      for _, comp in ipairs(fields.components) do
+        table.insert(component_names, comp.name)
+      end
+      table.insert(lines, "**Component**: " .. table.concat(component_names, ", "))
+    end
+
     -- Display labels if they exist
     if fields.labels and type(fields.labels) == "table" and #fields.labels > 0 then
       table.insert(lines, "**Labels**: " .. table.concat(fields.labels, ", "))
