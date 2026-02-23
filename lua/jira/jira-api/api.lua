@@ -456,5 +456,27 @@ function M.get_create_meta(project_key, callback)
   end)
 end
 
+-- Get project components
+function M.get_project_components(project_key, callback)
+  local endpoint = version.get_api_path() .. "/project/" .. project_key .. "/components"
+  curl_request("GET", endpoint, nil, function(result, err)
+    if err then
+      if callback and vim.is_callable(callback) then
+        callback(nil, err)
+      end
+      return
+    end
+    if callback and vim.is_callable(callback) then
+      local components = {}
+      if result and type(result) == "table" then
+        for _, comp in ipairs(result) do
+          table.insert(components, comp.name)
+        end
+      end
+      callback(components, nil)
+    end
+  end)
+end
+
 return M
 -- vim: set ts=2 sts=2 sw=2 et ai si sta:

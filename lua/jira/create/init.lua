@@ -11,6 +11,7 @@ local state = {
   project_key = nil,
   parent_key = nil,
   valid_issue_types = {},
+  valid_components = {},
 }
 
 local function update_type_line(type_name)
@@ -59,6 +60,51 @@ local function select_issue_type()
   end
 end
 
+local function update_component_line(component_name)
+  if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
+  for i, line in ipairs(lines) do
+    if line:match("^%*%*Component%*%*:") then
+      local new_line = "**Component**: " .. component_name
+      vim.api.nvim_buf_set_lines(state.buf, i - 1, i, false, { new_line })
+
+      local ns = vim.api.nvim_create_namespace("JiraCreateComponents")
+      vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
+      vim.api.nvim_buf_set_extmark(state.buf, ns, i - 1, 0, {
+        virt_text = { { "  Press <Enter> to select", "Comment" } },
+        virt_text_pos = "eol",
+      })
+
+      vim.bo[state.buf].modified = false
+      break
+    end
+  end
+end
+
+local function select_component()
+  if not state.valid_components or #state.valid_components == 0 then
+    vim.notify("No components available", vim.log.levels.WARN)
+    return
+  end
+
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local row = cursor[1] - 1
+  local line = vim.api.nvim_buf_get_lines(state.buf, row, row + 1, false)[1]
+
+  if line and line:match("^%*%*Component%*%*:") then
+    vim.ui.select(state.valid_components, {
+      prompt = "Select Component:",
+    }, function(choice)
+      if choice then
+        update_component_line(choice)
+      end
+    end)
+  end
+end
+
 local function render_template()
   local lines = {}
   table.insert(lines, "# Summary")
@@ -71,6 +117,7 @@ local function render_template()
 
   table.insert(lines, "**Type**: " .. type_default)
   table.insert(lines, "**Priority**: Medium")
+  table.insert(lines, "**Component**: ")
 
   if state.parent_key then
     table.insert(lines, "**Parent**: " .. state.parent_key)
@@ -125,6 +172,7 @@ local function on_save()
   local summary = nil
   local issue_type = "Task"
   local priority = "Medium"
+  local component = nil
   local parent_key = nil
   local story_points = nil
   local estimate = nil
@@ -150,6 +198,11 @@ local function on_save()
       local p_val = line:match("^%*%*Priority%*%*:?%s*(.*)")
       if p_val then
         priority = common_util.strim(p_val)
+      end
+
+      local comp_val = line:match("^%*%*Component%*%*:?%s*(.*)")
+      if comp_val then
+        component = common_util.strim(comp_val)
       end
 
       local parent_val = line:match("^%*%*Parent%*%*:?%s*(.*)")
@@ -188,6 +241,10 @@ local function on_save()
     issuetype = { name = issue_type },
     priority = { name = priority },
   }
+
+  if component and component ~= "" then
+    fields.components = { { name = component } }
+  end
 
   if parent_key and parent_key ~= "" then
     fields.parent = { key = parent_key }
@@ -317,7 +374,17 @@ function M.open(project_key, parent_key)
   })
 
   -- Keymap for selection
-  vim.keymap.set("n", "<CR>", select_issue_type, { buffer = buf, silent = true })
+  vim.keymap.set("n", "<CR>", function()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local row = cursor[1] - 1
+    local line = vim.api.nvim_buf_get_lines(state.buf, row, row + 1, false)[1]
+
+    if line and line:match("^%*%*Type%*%*:") then
+      select_issue_type()
+    elseif line and line:match("^%*%*Component%*%*:") then
+      select_component()
+    end
+  end, { buffer = buf, silent = true })
 
   -- Fetch valid issue types
   jira_api.get_create_meta(project_key, function(issue_types, err)
@@ -359,6 +426,13 @@ function M.open(project_key, parent_key)
           end
         end)
       end
+    end
+  end)
+
+  -- Fetch project components
+  jira_api.get_project_components(project_key, function(components, err)
+    if not err and components and #components > 0 then
+      state.valid_components = components
     end
   end)
 end
