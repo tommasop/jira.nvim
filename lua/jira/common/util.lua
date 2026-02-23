@@ -395,310 +395,251 @@ function M.markdown_to_adf(text)
   }
 
   local lines = vim.split(text, "\n")
-  local current_node = nil
-  local in_code_block = false
-  local code_language = nil
-  local code_lines = {}
-  local in_blockquote = false
-  local blockquote_lines = {}
-  local table_headers = nil
-  local table_aligns = {}
-  local table_rows = {}
-  local in_table_cell = false
+
+  local state = {
+    in_code_block = false,
+    code_language = nil,
+    code_lines = {},
+    in_blockquote = false,
+    blockquote_lines = {},
+    in_table = false,
+    table_headers = {},
+    table_rows = {},
+    list_type = nil,
+    list_items = {},
+    paragraph_lines = {},
+  }
 
   local function flush_paragraph()
-    if current_node and current_node.type == "paragraph" then
-      local text_content = ""
-      for _, n in ipairs(current_node.content) do
-        if n.type == "text" then
-          text_content = text_content .. n.text
-        end
+    if #state.paragraph_lines > 0 then
+      local full_text = table.concat(state.paragraph_lines, " ")
+      if full_text ~= "" then
+        table.insert(doc.content, {
+          type = "paragraph",
+          content = M.parse_inline_markdown(full_text),
+        })
       end
-      if text_content:match("^%s*$") then
-        table.remove(doc.content)
-      end
+      state.paragraph_lines = {}
     end
-    current_node = nil
+  end
+
+  local function flush_list()
+    if #state.list_items > 0 and state.list_type then
+      local list_node = { type = state.list_type, content = {} }
+      for _, item_text in ipairs(state.list_items) do
+        table.insert(list_node.content, {
+          type = "listItem",
+          content = { { type = "paragraph", content = M.parse_inline_markdown(item_text) } },
+        })
+      end
+      table.insert(doc.content, list_node)
+      state.list_items = {}
+      state.list_type = nil
+    end
   end
 
   local function flush_table()
-    if table_headers then
-      local table_node = {
-        type = "table",
-        attrs = { layout = "default" },
-        content = {
-          {
-            type = "tableRow",
-            content = vim.tbl_map(function(h)
-              return {
-                type = "tableCell",
-                content = { { type = "paragraph", content = M.parse_inline_markdown(h) } },
-              }
-            end, table_headers),
-          },
-        },
-      }
-      for _, row in ipairs(table_rows) do
-        local row_node = {
-          type = "tableRow",
-          content = vim.tbl_map(function(cell)
-            return {
-              type = "tableCell",
-              content = { { type = "paragraph", content = M.parse_inline_markdown(cell) } },
-            }
-          end, row),
-        }
+    if #state.table_headers > 0 then
+      local table_node = { type = "table", attrs = { layout = "default" }, content = {} }
+      local header_row = { type = "tableRow", content = {} }
+      for _, header in ipairs(state.table_headers) do
+        table.insert(header_row.content, {
+          type = "tableCell",
+          content = { { type = "paragraph", content = M.parse_inline_markdown(header) } },
+        })
+      end
+      table.insert(table_node.content, header_row)
+
+      for _, row in ipairs(state.table_rows) do
+        local row_node = { type = "tableRow", content = {} }
+        for _, cell in ipairs(row) do
+          table.insert(row_node.content, {
+            type = "tableCell",
+            content = { { type = "paragraph", content = M.parse_inline_markdown(cell) } },
+          })
+        end
         table.insert(table_node.content, row_node)
       end
+
       table.insert(doc.content, table_node)
-      table_headers = nil
-      table_rows = {}
-      table_aligns = {}
-      current_node = nil
+      state.table_headers = {}
+      state.table_rows = {}
+      state.in_table = false
     end
   end
 
-  local function parse_table_row(line)
+  local function parse_table_cells(line)
     local cells = {}
-    local in_cell = false
-    local current_cell = ""
-    local i = 1
     line = line:match("^%s*(.*)%s*$")
     if line:sub(1, 1) == "|" then
       line = line:sub(2)
     end
-    while i <= #line + 1 do
-      if i > #line or line:sub(i, i) == "|" then
-        if in_cell then
-          table.insert(cells, current_cell:match("^%s*(.-)%s*$") or "")
-          current_cell = ""
-          in_cell = false
-        end
+    local i = 1
+    while i <= #line do
+      if line:sub(i, i) == "|" then
+        table.insert(cells, "")
+        i = i + 1
       else
-        in_cell = true
-        current_cell = current_cell .. line:sub(i, i)
+        local j = i
+        while j <= #line and line:sub(j, j) ~= "|" do
+          j = j + 1
+        end
+        local cell = line:sub(i, j - 1):match("^%s*(.-)%s*$") or ""
+        table.insert(cells, cell)
+        i = j + 1
       end
-      i = i + 1
+    end
+    while #cells > 0 and cells[#cells] == "" do
+      table.remove(cells)
     end
     return cells
   end
 
   for _, line in ipairs(lines) do
-    if in_code_block then
-      if line:match("^%s*```") then
+    if state.in_code_block then
+      if line:match("^%s*```%s*$") then
         table.insert(doc.content, {
           type = "codeBlock",
-          attrs = { language = code_language },
-          content = {
-            {
-              type = "text",
-              text = table.concat(code_lines, "\n"),
-            },
-          },
+          attrs = { language = state.code_language },
+          content = { { type = "text", text = table.concat(state.code_lines, "\n") } },
         })
-        in_code_block = false
-        code_lines = {}
-        code_language = nil
-        current_node = nil
+        state.in_code_block = false
+        state.code_lines = {}
+        state.code_language = nil
       else
-        table.insert(code_lines, line)
+        table.insert(state.code_lines, line)
       end
-    elseif in_blockquote then
-      local quote_content = line:match("^>%s*(.*)")
-      if quote_content ~= nil then
-        table.insert(blockquote_lines, quote_content)
+    elseif state.in_blockquote then
+      local quote = line:match("^>%s*(.*)")
+      if quote then
+        table.insert(state.blockquote_lines, quote)
       else
-        local bq_content = table.concat(blockquote_lines, "\n")
-        if bq_content ~= "" then
+        local content = table.concat(state.blockquote_lines, "\n")
+        if content ~= "" then
           table.insert(doc.content, {
             type = "blockquote",
-            content = {
-              {
-                type = "paragraph",
-                content = M.parse_inline_markdown(bq_content),
-              },
-            },
+            content = { { type = "paragraph", content = M.parse_inline_markdown(content) } },
           })
         end
-        in_blockquote = false
-        blockquote_lines = {}
-        current_node = nil
+        state.in_blockquote = false
+        state.blockquote_lines = {}
+        if line ~= "" then
+          table.insert(state.paragraph_lines, line)
+        end
       end
-    else
-      local code_lang = line:match("^%s*```(%w*)")
-      local h_level, h_content = line:match("^(#+)%s+(.*)")
-      local b_content = line:match("^%s*[%-*]%s+(.*)")
-      local task_content = line:match("^%s*[%-*]%s+%[%s*%]%s+(.*)")
-      local task_done = line:match("^%s*[%-*]%s+%[x%]%s+(.*)")
-      local o_content = line:match("^%s*%d+%.%s+(.*)")
-      local hr = line:match("^%s*[%-_*]+%s*$")
-      local is_empty = (line == "")
-      local bq_start = line:match("^>%s*(.*)")
-      local table_sep = line:match("^%|?[-%s:]+%|")
-
-      if code_lang then
-        flush_paragraph()
-        flush_table()
-        in_code_block = true
-        code_language = code_lang
-        if code_language == "" then
-          code_language = nil
-        end
-        code_lines = {}
-      elseif h_level then
-        flush_paragraph()
-        flush_table()
-        current_node = nil
-        table.insert(doc.content, {
-          type = "heading",
-          attrs = { level = #h_level },
-          content = M.parse_inline_markdown(h_content),
-        })
-      elseif hr then
-        flush_paragraph()
-        flush_table()
-        table.insert(doc.content, { type = "rule" })
-        current_node = nil
-      elseif bq_start ~= nil and (bq_start ~= "" or #blockquote_lines > 0) then
-        flush_paragraph()
-        flush_table()
-        if bq_start == "" then
-          bq_start = " "
-        end
-        table.insert(blockquote_lines, bq_start)
-        in_blockquote = true
-      elseif is_empty then
-        current_node = nil
-      elseif line:match("^%|") then
-        local cells = parse_table_row(line)
-        if #cells > 0 then
-          if line:match("^%|?%s*[-:]+%s*%|") then
-            for _, c in ipairs(cells) do
-              local align = "start"
-              if c:match("^:%s*-+$") or c:match("^-+%s*:$") then
-                align = "center"
-              elseif c:match("^:%s*-+$") then
-                align = "end"
-              end
-              table.insert(table_aligns, align)
-            end
-          elseif not table_headers then
-            flush_paragraph()
-            table_headers = cells
-          else
-            table.insert(table_rows, cells)
+    elseif state.in_table then
+      if line:match("^%|") then
+        if not line:match("^%|?%s*[-:]+") then
+          local cells = parse_table_cells(line)
+          if #cells > 0 then
+            table.insert(state.table_rows, cells)
           end
         end
-      elseif not table_headers and line:match("^%s*```") then
-        flush_paragraph()
-        flush_table()
-        in_code_block = true
-        code_language = nil
-        code_lines = {}
-      elseif task_content or task_done then
-        flush_paragraph()
-        flush_table()
-        local content = task_content or task_done
-        local status = task_done and "done" or "pending"
-        local task_item = {
-          type = "taskItem",
-          attrs = { status = status },
-          content = {
-            {
-              type = "paragraph",
-              content = M.parse_inline_markdown(content),
-            },
-          },
-        }
-        if not current_node or current_node.type ~= "taskList" then
-          current_node = { type = "taskList", content = {} }
-          table.insert(doc.content, current_node)
-        end
-        table.insert(current_node.content, task_item)
-      elseif b_content then
-        flush_paragraph()
-        flush_table()
-        if not current_node or current_node.type ~= "bulletList" then
-          current_node = { type = "bulletList", content = {} }
-          table.insert(doc.content, current_node)
-        end
-        table.insert(current_node.content, {
-          type = "listItem",
-          content = {
-            {
-              type = "paragraph",
-              content = M.parse_inline_markdown(b_content),
-            },
-          },
-        })
-      elseif o_content then
-        flush_paragraph()
-        flush_table()
-        if not current_node or current_node.type ~= "orderedList" then
-          current_node = { type = "orderedList", content = {} }
-          table.insert(doc.content, current_node)
-        end
-        table.insert(current_node.content, {
-          type = "listItem",
-          content = {
-            {
-              type = "paragraph",
-              content = M.parse_inline_markdown(o_content),
-            },
-          },
-        })
       else
         flush_table()
-        if current_node and current_node.type == "paragraph" then
-          table.insert(current_node.content, { type = "text", text = " " })
-          local nodes = M.parse_inline_markdown(line)
-          for _, n in ipairs(nodes) do
-            table.insert(current_node.content, n)
-          end
-        else
-          current_node = { type = "paragraph", content = {} }
-          table.insert(doc.content, current_node)
-          local nodes = M.parse_inline_markdown(line)
-          for _, n in ipairs(nodes) do
-            table.insert(current_node.content, n)
-          end
+        if line ~= "" then
+          table.insert(state.paragraph_lines, line)
         end
+      end
+    else
+      if line:match("^%s*```%w*%s*$") then
+        flush_paragraph()
+        flush_list()
+        flush_table()
+        state.in_code_block = true
+        local lang = line:match("^%s*```(%w*)")
+        state.code_language = lang ~= "" and lang or nil
+        state.code_lines = {}
+      elseif line:match("^(#+)%s+(.*)") then
+        flush_paragraph()
+        flush_list()
+        flush_table()
+        local level, content = line:match("^(#+)%s+(.*)")
+        table.insert(doc.content, {
+          type = "heading",
+          attrs = { level = #level },
+          content = M.parse_inline_markdown(content),
+        })
+      elseif line:match("^%s*[%-*]%s+%[%s*%]%s+(.*)") or line:match("^%s*[%-*]%s+%[x%]%s+(.*)") then
+        flush_paragraph()
+        if state.list_type ~= "bulletList" then
+          flush_list()
+        end
+        state.list_type = "bulletList"
+        local content = line:match("^%s*[%-*]%s+%[[ x]%]%s+(.*)")
+        table.insert(state.list_items, content)
+      elseif line:match("^%s*[%-*]%s+(.*)") then
+        flush_paragraph()
+        if state.list_type ~= "bulletList" then
+          flush_list()
+        end
+        state.list_type = "bulletList"
+        local content = line:match("^%s*[%-*]%s+(.*)")
+        table.insert(state.list_items, content)
+      elseif line:match("^%s*%d+%.%s+(.*)") then
+        flush_paragraph()
+        if state.list_type ~= "orderedList" then
+          flush_list()
+        end
+        state.list_type = "orderedList"
+        local content = line:match("^%s*%d+%.%s+(.*)")
+        table.insert(state.list_items, content)
+      elseif line:match("^%s*[%-_]{3,}%s*$") then
+        flush_paragraph()
+        flush_list()
+        flush_table()
+        table.insert(doc.content, { type = "rule" })
+      elseif line:match("^>%s*(.*)") then
+        flush_paragraph()
+        flush_list()
+        flush_table()
+        local content = line:match("^>%s*(.*)")
+        if content ~= "" then
+          state.in_blockquote = true
+          state.blockquote_lines = { content }
+        end
+      elseif line:match("^%|") and not line:match("^%|?%s*[-:]+") then
+        flush_paragraph()
+        flush_list()
+        local cells = parse_table_cells(line)
+        if #cells > 0 then
+          state.in_table = true
+          state.table_headers = cells
+          state.table_rows = {}
+        end
+      elseif line == "" then
+        flush_paragraph()
+        flush_list()
+      else
+        if state.list_type then
+          flush_list()
+        end
+        table.insert(state.paragraph_lines, line)
       end
     end
   end
 
-  -- Handle unclosed code block
-  if in_code_block then
+  if state.in_code_block and #state.code_lines > 0 then
     table.insert(doc.content, {
       type = "codeBlock",
-      attrs = { language = code_language },
-      content = {
-        {
-          type = "text",
-          text = table.concat(code_lines, "\n"),
-        },
-      },
+      attrs = { language = state.code_language },
+      content = { { type = "text", text = table.concat(state.code_lines, "\n") } },
     })
   end
 
-  -- Handle unclosed blockquote
-  if in_blockquote and #blockquote_lines > 0 then
-    local bq_content = table.concat(blockquote_lines, "\n")
-    if bq_content ~= "" then
+  if state.in_blockquote and #state.blockquote_lines > 0 then
+    local content = table.concat(state.blockquote_lines, "\n")
+    if content ~= "" then
       table.insert(doc.content, {
         type = "blockquote",
-        content = {
-          {
-            type = "paragraph",
-            content = M.parse_inline_markdown(bq_content),
-          },
-        },
+        content = { { type = "paragraph", content = M.parse_inline_markdown(content) } },
       })
     end
   end
 
-  -- Handle unclosed table
   flush_table()
+  flush_paragraph()
+  flush_list()
 
   if #doc.content == 0 then
     table.insert(doc.content, { type = "paragraph", content = { { type = "text", text = "" } } })

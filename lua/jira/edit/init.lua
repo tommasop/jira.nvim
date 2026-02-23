@@ -153,7 +153,6 @@ local function on_save()
 
   common_ui.start_loading("Saving issue " .. state.issue.key .. "...")
 
-  -- Get buffer content
   local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
 
   local summary = nil
@@ -170,10 +169,9 @@ local function on_save()
   for i, line in ipairs(lines) do
     if i == 1 and line:match("^# ") then
       summary = line:sub(3)
-    elseif not in_description and line == "---" then
+    elseif not in_description and line:match("^%s*---%s*$") then
       in_description = true
     elseif not in_description then
-      -- Parse metadata
       local p_val = line:match("^%*%*Priority%*%*:?%s*(.*)")
       if p_val then
         priority = common_util.strim(p_val)
@@ -218,9 +216,6 @@ local function on_save()
     fields.priority = { name = priority }
   end
 
-  -- We don't update assignee here because it usually needs accountId
-  -- and names can be ambiguous. Keeping it read-only or adding a
-  -- check for "Unassigned" to clear it.
   if assignee_text and assignee_text:lower() == "unassigned" then
     fields.assignee = { accountId = nil }
   end
@@ -236,12 +231,10 @@ local function on_save()
   end
 
   if labels and labels ~= "" then
-    -- Split labels by comma and trim whitespace
     local label_list = {}
     for label in labels:gmatch("[^,]+") do
       label = common_util.strim(label)
       if label ~= "" then
-        -- Validate label doesn't contain spaces
         if label:match("%s") then
           common_ui.stop_loading()
           vim.notify("Label '" .. label .. "' contains spaces. Labels cannot contain spaces.", vim.log.levels.ERROR)
@@ -260,11 +253,16 @@ local function on_save()
   if in_description then
     local description_text = table.concat(desc_lines, "\n")
     description_text = common_util.strim(description_text)
-    local version = require("jira.jira-api.version")
-    if version.is_v2() then
-      fields.description = description_text
+    if description_text ~= "" then
+      local ok, adf = pcall(common_util.markdown_to_adf, description_text)
+      if ok and adf and adf.type then
+        fields.description = adf
+      else
+        vim.notify("Failed to convert description to ADF: " .. tostring(adf), vim.log.levels.ERROR)
+        fields.description = description_text
+      end
     else
-      fields.description = common_util.markdown_to_adf(description_text)
+      fields.description = { type = "doc", version = 1, content = {} }
     end
   end
 

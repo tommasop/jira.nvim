@@ -279,17 +279,16 @@ local function on_save()
 
   if in_description then
     local description_text = table.concat(desc_lines, "\n")
-    -- Remove placeholder
-    if description_text:find("Description") then
-      description_text = description_text:gsub("Description", "")
-    end
+    description_text = description_text:gsub("^Description%s*\n?", "")
+    description_text = description_text:gsub("\n?Description%s*$", "")
     description_text = common_util.strim(description_text)
     if description_text ~= "" then
-      local version = require("jira.jira-api.version")
-      if version.is_v2() then
-        fields.description = description_text
+      local ok, adf = pcall(common_util.markdown_to_adf, description_text)
+      if ok and adf and adf.type then
+        fields.description = adf
       else
-        fields.description = common_util.markdown_to_adf(description_text)
+        vim.notify("Failed to convert description to ADF: " .. tostring(adf), vim.log.levels.ERROR)
+        fields.description = description_text
       end
     end
   end
