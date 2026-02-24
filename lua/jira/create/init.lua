@@ -521,39 +521,20 @@ function M.open(project_key, parent_key)
   -- Fetch all sprints - first try to find "Sprints" board, then fall back to all boards
   local function fetch_sprints(board_id)
     jira_api.get_board_sprints(board_id, function(sprints, err)
-      if err then
-        vim.notify("Failed to fetch sprints: " .. tostring(err), vim.log.levels.WARN)
-        return
-      end
-      if sprints and #sprints > 0 then
+      if not err and sprints then
         state.valid_sprints = sprints
-        vim.notify("Loaded " .. #sprints .. " sprints", vim.log.levels.INFO)
-      else
-        vim.notify("No sprints found on board", vim.log.levels.WARN)
       end
     end)
   end
 
   jira_api.get_board_by_name(project_key, "Sprints", function(board, err)
-    if err then
-      vim.notify("Failed to find Sprints board: " .. tostring(err), vim.log.levels.WARN)
-    end
     if not err and board and board.id then
-      vim.notify("Found Sprints board: " .. tostring(board.id), vim.log.levels.INFO)
       fetch_sprints(board.id)
     else
-      vim.notify("Sprints board not found, trying all boards", vim.log.levels.INFO)
       jira_api.get_project_boards(project_key, function(boards, err)
-        if err then
-          vim.notify("Failed to fetch boards: " .. tostring(err), vim.log.levels.WARN)
-          return
+        if not err and boards and #boards > 0 then
+          fetch_sprints(boards[1].id)
         end
-        if not boards or #boards == 0 then
-          vim.notify("No boards found", vim.log.levels.WARN)
-          return
-        end
-        vim.notify("Found " .. #boards .. " boards, using first: " .. tostring(boards[1].id), vim.log.levels.INFO)
-        fetch_sprints(boards[1].id)
       end)
     end
   end)

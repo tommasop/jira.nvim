@@ -160,21 +160,16 @@ local function render_issue_as_md(issue)
   local current_sprint = ""
   if fields[sprint_field] and fields[sprint_field] ~= vim.NIL then
     local sprint_data = fields[sprint_field]
-    -- Debug: print what we got
-    vim.notify("Sprint field: " .. vim.inspect(sprint_data), vim.log.levels.DEBUG)
     if type(sprint_data) == "table" then
       -- Could be an array of sprints or a single sprint object
       if sprint_data[1] and type(sprint_data[1]) == "table" then
         -- Array of sprints - take the last one (active)
         local last_sprint = sprint_data[#sprint_data]
-        current_sprint = last_sprint.name or last_sprint.value or tostring(last_sprint.id or "")
+        current_sprint = last_sprint.name or last_sprint.value or ""
       elseif sprint_data.name then
         current_sprint = sprint_data.name
       elseif sprint_data.value then
         current_sprint = sprint_data.value
-      else
-        -- Unknown table structure - use vim.inspect
-        current_sprint = vim.inspect(sprint_data):gsub("\n", " "):sub(1, 100)
       end
     elseif sprint_data then
       current_sprint = tostring(sprint_data)

@@ -104,9 +104,6 @@ function M.render_content()
           sprint_name = sprint_data.name
         elseif sprint_data.value then
           sprint_name = sprint_data.value
-        else
-          -- Unknown table structure - show debug info
-          sprint_name = vim.inspect(sprint_data):gsub("\n", " "):sub(1, 100)
         end
       elseif sprint_data then
         sprint_name = tostring(sprint_data)

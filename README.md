@@ -24,6 +24,7 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI.
 - 🔄 Change task status
 - ⏱️ Log time on tasks
 - 👤 Assign tasks
+- 🏷️ Set Components and Sprints
 - 🎨 Git integration
 - 🎨 Comment
 - 🎨 Create, edit task
@@ -82,6 +83,7 @@ require('jira').setup({
   projects = {
     ["DEV"] = {
       story_point_field = "customfield_10035",      -- Custom field ID for story points
+      sprint_field = "customfield_10008",          -- Custom field ID for sprint (default: customfield_10008)
       custom_fields = { -- Custom field to display in markdown view
         { key = "customfield_10016", label = "Acceptance Criteria" }
       },
@@ -127,6 +129,15 @@ Run the following command to open the Jira board:
 ```
 
 If you don't provide a project key, you will be prompted to enter one.
+
+### Components and Sprints
+
+When creating or editing issues, you can set:
+
+- **Component** - Project components (press `<Enter>` on the Component line to open picker)
+- **Sprint** - Sprints from your project's "Sprints" board (press `<Enter>` on the Sprint line to open picker)
+
+The plugin fetches all available components and sprints automatically when you open the create/edit view.
 
 ### Keybindings
 
@@ -182,6 +193,7 @@ make test
 - [x] Log time
 - [x] Comment
 - [x] Create, Edit task
+- [x] Component and Sprint fields
 - [ ] Bulk actions
 - [ ] Update UI when terminal size change
 ...

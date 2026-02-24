@@ -513,16 +513,13 @@ end
 -- Get board by name
 function M.get_board_by_name(project_key, board_name, callback)
   local endpoint = "/rest/agile/1.0/board?projectKey=" .. project_key .. "&name=" .. url_encode(board_name)
-  vim.notify("Fetching board: " .. endpoint, vim.log.levels.INFO)
   curl_request("GET", endpoint, nil, function(result, err)
     if err then
-      vim.notify("Board fetch error: " .. tostring(err), vim.log.levels.WARN)
       if callback and vim.is_callable(callback) then
         callback(nil, err)
       end
       return
     end
-    vim.notify("Board result: " .. vim.inspect(result), vim.log.levels.INFO)
     if callback and vim.is_callable(callback) then
       if result and result.values and #result.values > 0 then
         callback(result.values[1], nil)
@@ -536,16 +533,13 @@ end
 -- Get sprints from a board
 function M.get_board_sprints(board_id, callback)
   local endpoint = "/rest/agile/1.0/board/" .. board_id .. "/sprint"
-  vim.notify("Fetching sprints from board " .. board_id, vim.log.levels.INFO)
   curl_request("GET", endpoint, nil, function(result, err)
     if err then
-      vim.notify("Sprint fetch error: " .. tostring(err), vim.log.levels.WARN)
       if callback and vim.is_callable(callback) then
         callback(nil, err)
       end
       return
     end
-    vim.notify("Sprint result: " .. vim.inspect(result), vim.log.levels.INFO)
     if callback and vim.is_callable(callback) then
       local sprints = {}
       if result and result.values then
@@ -557,7 +551,6 @@ function M.get_board_sprints(board_id, callback)
           })
         end
       end
-      vim.notify("Parsed " .. #sprints .. " sprints", vim.log.levels.INFO)
       callback(sprints, nil)
     end
   end)
