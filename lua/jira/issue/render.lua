@@ -89,6 +89,33 @@ function M.render_content()
       table.insert(lines, "**Component**: " .. table.concat(component_names, ", "))
     end
 
+    -- Display sprint if it exists
+    local sprint_field = config.get_project_config(fields.project.key).sprint_field
+    if fields[sprint_field] and fields[sprint_field] ~= vim.NIL then
+      local sprint_data = fields[sprint_field]
+      local sprint_name = ""
+      if type(sprint_data) == "table" then
+        -- Could be an array of sprints or a single sprint object
+        if sprint_data[1] and type(sprint_data[1]) == "table" then
+          -- Array of sprints - take the last one (active)
+          local last_sprint = sprint_data[#sprint_data]
+          sprint_name = last_sprint.name or last_sprint.value or ""
+        elseif sprint_data.name then
+          sprint_name = sprint_data.name
+        elseif sprint_data.value then
+          sprint_name = sprint_data.value
+        else
+          -- Unknown table structure - show debug info
+          sprint_name = vim.inspect(sprint_data):gsub("\n", " "):sub(1, 100)
+        end
+      elseif sprint_data then
+        sprint_name = tostring(sprint_data)
+      end
+      if sprint_name ~= "" then
+        table.insert(lines, "**Sprint**: " .. sprint_name)
+      end
+    end
+
     -- Display labels if they exist
     if fields.labels and type(fields.labels) == "table" and #fields.labels > 0 then
       table.insert(lines, "**Labels**: " .. table.concat(fields.labels, ", "))

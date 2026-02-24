@@ -9,6 +9,18 @@ local config = require("jira.common.config")
 local util = require("jira.common.util")
 local version = require("jira.jira-api.version")
 
+-- Simple URL encode function
+local function url_encode(str)
+  if not str then
+    return ""
+  end
+  str = tostring(str)
+  str = str:gsub("([^%w%-%.%_%~])", function(c)
+    return string.format("%%%02X", string.byte(c))
+  end)
+  return str
+end
+
 -- Get environment variables
 ---@return JiraAuthOptions auth_opts
 local function get_env()
@@ -474,6 +486,98 @@ function M.get_project_components(project_key, callback)
         end
       end
       callback(components, nil)
+    end
+  end)
+end
+
+-- Get project boards (Agile API)
+function M.get_project_boards(project_key, callback)
+  local endpoint = "/rest/agile/1.0/board?projectKey=" .. project_key .. "&type=scrum,kanban"
+  curl_request("GET", endpoint, nil, function(result, err)
+    if err then
+      if callback and vim.is_callable(callback) then
+        callback(nil, err)
+      end
+      return
+    end
+    if callback and vim.is_callable(callback) then
+      local boards = {}
+      if result and result.values then
+        boards = result.values
+      end
+      callback(boards, nil)
+    end
+  end)
+end
+
+-- Get board by name
+function M.get_board_by_name(project_key, board_name, callback)
+  local endpoint = "/rest/agile/1.0/board?projectKey=" .. project_key .. "&name=" .. url_encode(board_name)
+  vim.notify("Fetching board: " .. endpoint, vim.log.levels.INFO)
+  curl_request("GET", endpoint, nil, function(result, err)
+    if err then
+      vim.notify("Board fetch error: " .. tostring(err), vim.log.levels.WARN)
+      if callback and vim.is_callable(callback) then
+        callback(nil, err)
+      end
+      return
+    end
+    vim.notify("Board result: " .. vim.inspect(result), vim.log.levels.INFO)
+    if callback and vim.is_callable(callback) then
+      if result and result.values and #result.values > 0 then
+        callback(result.values[1], nil)
+      else
+        callback(nil, nil)
+      end
+    end
+  end)
+end
+
+-- Get sprints from a board
+function M.get_board_sprints(board_id, callback)
+  local endpoint = "/rest/agile/1.0/board/" .. board_id .. "/sprint"
+  vim.notify("Fetching sprints from board " .. board_id, vim.log.levels.INFO)
+  curl_request("GET", endpoint, nil, function(result, err)
+    if err then
+      vim.notify("Sprint fetch error: " .. tostring(err), vim.log.levels.WARN)
+      if callback and vim.is_callable(callback) then
+        callback(nil, err)
+      end
+      return
+    end
+    vim.notify("Sprint result: " .. vim.inspect(result), vim.log.levels.INFO)
+    if callback and vim.is_callable(callback) then
+      local sprints = {}
+      if result and result.values then
+        for _, sprint in ipairs(result.values) do
+          table.insert(sprints, {
+            id = sprint.id,
+            name = sprint.name,
+            state = sprint.state,
+          })
+        end
+      end
+      vim.notify("Parsed " .. #sprints .. " sprints", vim.log.levels.INFO)
+      callback(sprints, nil)
+    end
+  end)
+end
+
+-- Move issue to sprint (Agile API)
+function M.move_issue_to_sprint(issue_key, sprint_id, callback)
+  local endpoint = "/rest/agile/1.0/issue/" .. issue_key .. "/sprint"
+  local data = {
+    sprintId = sprint_id,
+  }
+  curl_request("POST", endpoint, data, function(result, err)
+    if err then
+      if callback and vim.is_callable(callback) then
+        callback(nil, err)
+      end
+      return
+    end
+    if callback and vim.is_callable(callback) then
+      callback(result, nil)
     end
   end)
 end

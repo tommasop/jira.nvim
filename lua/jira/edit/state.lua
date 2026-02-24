@@ -7,6 +7,7 @@
 ---@field buf? integer
 ---@field win? integer
 ---@field valid_components? string[]
+---@field valid_sprints? table[]
 local M = {}
 
 return M

@@ -51,6 +51,55 @@ local function select_component()
   end
 end
 
+local function update_sprint_line(sprint_name)
+  if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
+  for i, line in ipairs(lines) do
+    if line:match("^%*%*Sprint%*%*:") then
+      local new_line = "**Sprint**: " .. sprint_name
+      vim.api.nvim_buf_set_lines(state.buf, i - 1, i, false, { new_line })
+
+      local ns = vim.api.nvim_buf_create_namespace("JiraEditSprints")
+      vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
+      vim.api.nvim_buf_set_extmark(state.buf, ns, i - 1, 0, {
+        virt_text = { { "  Press <Enter> to select", "Comment" } },
+        virt_text_pos = "eol",
+      })
+
+      vim.bo[state.buf].modified = false
+      break
+    end
+  end
+end
+
+local function select_sprint()
+  if not state.valid_sprints or #state.valid_sprints == 0 then
+    vim.notify("No sprints available yet. Please wait a moment and try again.", vim.log.levels.WARN)
+    return
+  end
+
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local row = cursor[1] - 1
+  local line = vim.api.nvim_buf_get_lines(state.buf, row, row + 1, false)[1]
+
+  if line and line:match("^%*%*Sprint%*%*:") then
+    local sprint_names = {}
+    for _, s in ipairs(state.valid_sprints) do
+      table.insert(sprint_names, s.name)
+    end
+    vim.ui.select(sprint_names, {
+      prompt = "Select Sprint:",
+    }, function(choice)
+      if choice then
+        update_sprint_line(choice)
+      end
+    end)
+  end
+end
+
 local function render_issue_as_md(issue)
   local fields = issue.fields
   local lines = {}
@@ -104,6 +153,34 @@ local function render_issue_as_md(issue)
     current_component = table.concat(component_names, ", ")
   end
   table.insert(lines, ("**Component**: %s"):format(current_component))
+
+  -- Display sprint if it exists
+  local project_key = fields.project and fields.project.key
+  local sprint_field = config.get_project_config(project_key).sprint_field
+  local current_sprint = ""
+  if fields[sprint_field] and fields[sprint_field] ~= vim.NIL then
+    local sprint_data = fields[sprint_field]
+    -- Debug: print what we got
+    vim.notify("Sprint field: " .. vim.inspect(sprint_data), vim.log.levels.DEBUG)
+    if type(sprint_data) == "table" then
+      -- Could be an array of sprints or a single sprint object
+      if sprint_data[1] and type(sprint_data[1]) == "table" then
+        -- Array of sprints - take the last one (active)
+        local last_sprint = sprint_data[#sprint_data]
+        current_sprint = last_sprint.name or last_sprint.value or tostring(last_sprint.id or "")
+      elseif sprint_data.name then
+        current_sprint = sprint_data.name
+      elseif sprint_data.value then
+        current_sprint = sprint_data.value
+      else
+        -- Unknown table structure - use vim.inspect
+        current_sprint = vim.inspect(sprint_data):gsub("\n", " "):sub(1, 100)
+      end
+    elseif sprint_data then
+      current_sprint = tostring(sprint_data)
+    end
+  end
+  table.insert(lines, ("**Sprint**: %s"):format(current_sprint))
 
   table.insert(lines, "")
   table.insert(lines, "---")
@@ -162,6 +239,7 @@ local function on_save()
   local assignee_text = nil
   local labels = nil
   local component = nil
+  local sprint = nil
 
   local desc_lines = {}
   local in_description = false
@@ -200,6 +278,11 @@ local function on_save()
       local comp_val = line:match("^%*%*Component%*%*:?%s*(.*)")
       if comp_val then
         component = common_util.strim(comp_val)
+      end
+
+      local sprint_val = line:match("^%*%*Sprint%*%*:?%s*(.*)")
+      if sprint_val then
+        sprint = common_util.strim(sprint_val)
       end
     elseif in_description then
       table.insert(desc_lines, line)
@@ -250,6 +333,16 @@ local function on_save()
     fields.components = { { name = component } }
   end
 
+  local sprint_id = nil
+  if sprint and sprint ~= "" then
+    for _, s in ipairs(state.valid_sprints or {}) do
+      if s.name == sprint then
+        sprint_id = s.id
+        break
+      end
+    end
+  end
+
   if in_description then
     local description_text = table.concat(desc_lines, "\n")
     description_text = common_util.strim(description_text)
@@ -266,11 +359,22 @@ local function on_save()
     end
   end
 
+  local function finish_save()
+    if sprint_id then
+      jira_api.move_issue_to_sprint(state.issue.key, sprint_id, function(_, err)
+        if err then
+          vim.notify("Issue saved but failed to move to sprint: " .. err, vim.log.levels.WARN)
+        end
+      end)
+    end
+  end
+
   jira_api.update_issue(state.issue.key, fields, function(_, err)
     common_ui.stop_loading()
     if err then
       vim.notify("Save failed: " .. err, vim.log.levels.ERROR)
     else
+      finish_save()
       vim.notify("Jira issue saved ✓")
       if vim.api.nvim_buf_is_valid(state.buf) then
         vim.bo[state.buf].modified = false
@@ -364,13 +468,44 @@ function M.open(issue_key)
       end,
     })
 
-    vim.keymap.set("n", "<CR>", select_component, { buffer = buf, silent = true })
+    vim.keymap.set("n", "<CR>", function()
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      local row = cursor[1] - 1
+      local line = vim.api.nvim_buf_get_lines(state.buf, row, row + 1, false)[1]
+
+      if line and line:match("^%*%*Component%*%*:") then
+        select_component()
+      elseif line and line:match("^%*%*Sprint%*%*:") then
+        select_sprint()
+      end
+    end, { buffer = buf, silent = true })
 
     local project_key = issue.fields.project and issue.fields.project.key
     if project_key then
       jira_api.get_project_components(project_key, function(components, err)
         if not err and components and #components > 0 then
           state.valid_components = components
+        end
+      end)
+
+      local function fetch_sprints(board_id)
+        jira_api.get_board_sprints(board_id, function(sprints, err)
+          if not err and sprints then
+            state.valid_sprints = sprints
+          end
+        end)
+      end
+
+      jira_api.get_board_by_name(project_key, "Sprints", function(board, err)
+        if not err and board and board.id then
+          fetch_sprints(board.id)
+        else
+          jira_api.get_project_boards(project_key, function(boards, err)
+            if err or not boards or #boards == 0 then
+              return
+            end
+            fetch_sprints(boards[1].id)
+          end)
         end
       end)
     end

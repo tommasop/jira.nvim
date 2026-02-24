@@ -3,6 +3,7 @@ local M = {}
 
 local FALLBACKS = {
   story_point_field = "customfield_10035",
+  sprint_field = "customfield_10008",
   custom_fields = {
     -- { key = "customfield_10016", label = "Acceptance Criteria" }
   },
@@ -55,6 +56,7 @@ function M.get_project_config(project_key)
 
   return {
     story_point_field = p_config.story_point_field or FALLBACKS.story_point_field,
+    sprint_field = p_config.sprint_field or FALLBACKS.sprint_field,
     custom_fields = p_config.custom_fields or FALLBACKS.custom_fields,
   }
 end
