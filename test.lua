@@ -1,3 +1,4 @@
+package.loaded['jira.common.util'] = nil
 local util = require("jira.common.util")
 
 local md = [[## 1. Executive Summary
@@ -46,9 +47,11 @@ for i, n in ipairs(adf.content) do
   elseif n.type == "rule" then
     print(i, "rule")
   elseif n.type == "codeBlock" then
-    print(i, "codeBlock lang=" .. (n.attrs.language or "none"))
+    print(i, "codeBlock lang=" .. (n.attrs and n.attrs.language or "none"))
   elseif n.type == "blockquote" then
     print(i, "blockquote")
+  elseif n.type == "paragraph" then
+    print(i, "paragraph:", n.content[1].text:sub(1,20))
   else
     print(i, n.type)
   end

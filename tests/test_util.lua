@@ -134,6 +134,16 @@ T["util"]["markdown_to_adf"]["should handle table"] = function()
   MiniTest.expect.equality(child.lua_get([[#adf.content[1].content]]), 2)
 end
 
+T["util"]["markdown_to_adf"]["should handle ASCII diagram"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[
+    diagram = "┌─────────────────────────┐\n│  Proteus.Auth.Provider  │\n│  ─────────────────────  │\n└───────────┬─────────────┘"
+    adf = M.markdown_to_adf(diagram)
+  ]])
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].type]]), "codeBlock")
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].content[1].text:find("┌")]]), 1)
+end
+
 T["util"]["adf_to_markdown"] = MiniTest.new_set()
 
 T["util"]["adf_to_markdown"]["should convert task list to markdown"] = function()
@@ -199,6 +209,25 @@ T["util"]["adf_to_markdown"]["should convert table to markdown"] = function()
   ]])
   MiniTest.expect.equality(child.lua_get([[md:find("h1")]]), 3)
   MiniTest.expect.equality(child.lua_get([[md:find("c1")]]), 20)
+end
+
+T["util"]["adf_to_markdown"]["should convert ASCII diagram code block to plain text"] = function()
+  child.lua([[M = require("jira.common.util")]])
+  child.lua([[
+    adf = {
+      type = "doc",
+      version = 1,
+      content = {
+        {
+          type = "codeBlock",
+          content = { { type = "text", text = "┌─┐\n│ │\n└─┘" } }
+        }
+      }
+    }
+    md = M.adf_to_markdown(adf)
+  ]])
+  MiniTest.expect.equality(child.lua_get([[md:find("┌")]]), 1)
+  MiniTest.expect.equality(child.lua_get([[md:find("```")]]), nil)
 end
 
 T["util"]["build_issue_tree"] = MiniTest.new_set()
