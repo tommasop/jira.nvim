@@ -1,37 +1,26 @@
 package.loaded['jira.common.util'] = nil
 local util = require("jira.common.util")
 
-local md = [[## 1. Executive Summary
-
-This document analyzes the implementation.
-
-### Key Objectives
-- Enable role CRUD
-- Enable role assignment
-- Abstract implementation
+local md = [[text
 
 ---
 
-## 2. Analysis
-
-| Component | Purpose |
-| --- | --- |
-| Client | HTTP |
-| API | Facade |
-
-### Code
-
-```elixir
-def hello do
-  IO.puts "test"
-end
-```
-
-> This is a quote
-
-- [ ] Task 1
-- [x] Task 2
 ]]
+
+print("Testing round-trip:")
+local adf = util.markdown_to_adf(md)
+print("ADF content count:", #adf.content)
+for i, n in ipairs(adf.content) do
+  print(i, n.type, n.content and #n.content or "")
+  if n.type == "paragraph" and n.content then
+    print("  text:", n.content[1].text)
+  end
+end
+local back_md = util.adf_to_markdown(adf)
+print("Original MD length:", #md)
+print("Back MD length:", #back_md)
+print("Contains ┌ in back:", back_md:find("┌") and "yes" or "no")
+print("Contains ``` in back:", back_md:find("```") and "yes" or "no")
 
 local adf = util.markdown_to_adf(md)
 print("Content nodes:", #adf.content)

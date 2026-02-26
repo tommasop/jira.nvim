@@ -71,43 +71,7 @@ M.format_time = function(seconds)
   return ("%.1f"):format(hours)
 end
 
----@param text string
----@return boolean
-local function has_diagram_chars(text)
-  local diagram_count = 0
-  local non_ascii_count = 0
-  local total_non_space = 0
-  local i = 1
-  while i <= #text do
-    local byte = text:byte(i)
-    if byte and byte > 127 then
-      non_ascii_count = non_ascii_count + 1
-    end
-    if byte and byte ~= 32 and byte ~= 9 and byte ~= 10 then  -- not space, tab, newline
-      total_non_space = total_non_space + 1
-    end
-    -- Check for known diagram bytes (start of UTF-8 sequences)
-    if byte == 226 then  -- potential start of diagram chars
-      local seq = text:sub(i, i+2)
-      if seq == "┌" or seq == "─" or seq == "┐" or seq == "│" or seq == "└" or seq == "┘" or seq == "├" or seq == "┼" or seq == "┤" or seq == "┬" or seq == "┴" then
-        diagram_count = diagram_count + 1
-      end
-    elseif byte == 226 and text:byte(i+1) == 150 and text:byte(i+2) == 188 then  -- ─
-      diagram_count = diagram_count + 1
-    elseif byte == 226 and text:byte(i+1) == 148 and text:byte(i+2) == 140 then  -- ┌
-      diagram_count = diagram_count + 1
-    elseif byte == 226 and text:byte(i+1) == 148 and text:byte(i+2) == 144 then  -- ┐
-      diagram_count = diagram_count + 1
-    elseif byte == 226 and text:byte(i+1) == 148 and text:byte(i+2) == 130 then  -- │
-      diagram_count = diagram_count + 1
-    elseif byte == 226 and text:byte(i+1) == 148 and text:byte(i+2) == 144 then  -- └ wait, different
-      -- Actually, better to use the string match
-    end
-    i = i + 1
-  end
-  -- Consider diagram if many non-ASCII chars or specific diagram chars found
-  return diagram_count >= 3 or (non_ascii_count >= 5 and total_non_space >= 10 and non_ascii_count / total_non_space >= 0.3)
-end
+
 
 ---@param node table|string
 ---@return string parsed_adf
@@ -192,12 +156,7 @@ local function parse_adf(node)
   end
   if node.type == "codeBlock" then
     local language = node.attrs and node.attrs.language or ""
-    if language == "" and has_diagram_chars(joined) then
-      -- Output diagram as plain text
-      return joined .. "\n\n"
-    else
-      return "```" .. language .. "\n" .. joined .. "\n```\n\n"
-    end
+    return "```" .. language .. "\n" .. joined .. "\n```\n\n"
   end
   if node.type == "blockquote" then
     return "> " .. joined:gsub("\n", "> ") .. "\n\n"
@@ -346,11 +305,7 @@ end
 
 
 
----@param line string
----@return boolean
-M.is_diagram_line = function(line)
-  return has_diagram_chars(line)
-end
+
 
 
 
@@ -462,8 +417,6 @@ function M.markdown_to_adf(text)
     list_type = nil,
     list_items = {},
     paragraph_lines = {},
-    in_ascii_diagram = false,
-    ascii_diagram_lines = {},
   }
 
   local function flush_paragraph()
@@ -524,16 +477,7 @@ function M.markdown_to_adf(text)
     end
   end
 
-  local function flush_ascii_diagram()
-    if #state.ascii_diagram_lines > 0 then
-      table.insert(doc.content, {
-        type = "codeBlock",
-        content = { { type = "text", text = table.concat(state.ascii_diagram_lines, "\n") } },
-      })
-      state.ascii_diagram_lines = {}
-      state.in_ascii_diagram = false
-    end
-  end
+
 
   local function parse_table_cells(line)
     local cells = {}
@@ -609,23 +553,20 @@ function M.markdown_to_adf(text)
         end
       end
     else
-      if has_diagram_chars(line) then
+
+      if line:find("---") then
         flush_paragraph()
         flush_list()
         flush_table()
-        if not state.in_ascii_diagram then
-          state.in_ascii_diagram = true
-        end
-        table.insert(state.ascii_diagram_lines, line)
+
+        table.insert(doc.content, { type = "rule" })
       elseif line == "" then
         flush_paragraph()
         flush_list()
-        flush_ascii_diagram()
       elseif line:match("^%s*```%w*%s*$") then
         flush_paragraph()
         flush_list()
         flush_table()
-        flush_ascii_diagram()
         state.in_code_block = true
         local lang = line:match("^%s*```(%w*)")
         state.code_language = lang ~= "" and lang or nil
@@ -634,7 +575,6 @@ function M.markdown_to_adf(text)
         flush_paragraph()
         flush_list()
         flush_table()
-        flush_ascii_diagram()
         local level, content = line:match("^(#+)%s+(.*)")
         table.insert(doc.content, {
           type = "heading",
@@ -643,7 +583,6 @@ function M.markdown_to_adf(text)
         })
       elseif line:match("^%s*[%-*]%s+%[%s*%]%s+(.*)") or line:match("^%s*[%-*]%s+%[x%]%s+(.*)") then
         flush_paragraph()
-        flush_ascii_diagram()
         if state.list_type ~= "bulletList" then
           flush_list()
         end
@@ -652,7 +591,6 @@ function M.markdown_to_adf(text)
         table.insert(state.list_items, content)
       elseif line:match("^%s*[%-*]%s+(.*)") then
         flush_paragraph()
-        flush_ascii_diagram()
         if state.list_type ~= "bulletList" then
           flush_list()
         end
@@ -661,24 +599,16 @@ function M.markdown_to_adf(text)
         table.insert(state.list_items, content)
       elseif line:match("^%s*%d+%.%s+(.*)") then
         flush_paragraph()
-        flush_ascii_diagram()
         if state.list_type ~= "orderedList" then
           flush_list()
         end
         state.list_type = "orderedList"
         local content = line:match("^%s*%d+%.%s+(.*)")
         table.insert(state.list_items, content)
-      elseif line:match("^%s*[%-_]{3,}%s*$") then
-        flush_paragraph()
-        flush_list()
-        flush_table()
-        flush_ascii_diagram()
-        table.insert(doc.content, { type = "rule" })
       elseif line:match("^>%s*(.*)") then
         flush_paragraph()
         flush_list()
         flush_table()
-        flush_ascii_diagram()
         local content = line:match("^>%s*(.*)")
         if content ~= "" then
           state.in_blockquote = true
@@ -687,7 +617,6 @@ function M.markdown_to_adf(text)
       elseif line:match("^%|") and not line:match("^%|?%s*[-:]+") then
         flush_paragraph()
         flush_list()
-        flush_ascii_diagram()
         local cells = parse_table_cells(line)
         if #cells > 0 then
           state.in_table = true
@@ -697,9 +626,6 @@ function M.markdown_to_adf(text)
       else
         if state.list_type then
           flush_list()
-        end
-        if state.in_ascii_diagram then
-          flush_ascii_diagram()
         end
         table.insert(state.paragraph_lines, line)
       end
@@ -727,7 +653,6 @@ function M.markdown_to_adf(text)
   flush_table()
   flush_paragraph()
   flush_list()
-  flush_ascii_diagram()
 
   if #doc.content == 0 then
     table.insert(doc.content, { type = "paragraph", content = { { type = "text", text = "" } } })

@@ -168,6 +168,32 @@ The plugin fetches all available components and sprints automatically when you o
 
 - How to get custom field list -> go to `https://your-domain.atlassian.net/rest/api/3/field`
 
+### ASCII Diagrams
+
+To ensure ASCII diagrams (flowcharts, architecture diagrams, etc.) are preserved correctly in Jira, wrap them in code blocks:
+
+```
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  Application Layer (Controllers, Flows)                                 │
+│  - Uses Proteus.Auth.Provider behavior, not ZITADEL directly           │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼────────────────────────────────────────┐
+│  Provider Behavior Layer                                                │
+│  Proteus.Auth.Provider (behaviour)                                     │
+│    ├── Proteus.Auth.Providers.Zitadel (current implementation)          │
+│    └── Proteus.Auth.Providers.Keycloak/Auth0/etc (future)              │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+```
+
+This will render the diagram as a code block in Jira, preserving the exact formatting and alignment. Diagrams not wrapped in code blocks will be treated as regular text.
+
+### Horizontal Rules
+
+Horizontal rules (`---`, `***`, `___`) are not currently supported outside of code blocks. Use them within code blocks if needed for documentation.
+
 ---
 
 ## Development

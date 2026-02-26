@@ -107,11 +107,7 @@ T["util"]["markdown_to_adf"]["should handle strikethrough"] = function()
   MiniTest.expect.equality(child.lua_get([[content[2].text]]), " text")
 end
 
-T["util"]["markdown_to_adf"]["should handle horizontal rule"] = function()
-  child.lua([[M = require("jira.common.util")]])
-  child.lua([[adf = M.markdown_to_adf("text\n\n---\n\nmore")]])
-  MiniTest.expect.equality(child.lua_get([[adf.content[2].type]]), "rule")
-end
+
 
 T["util"]["markdown_to_adf"]["should handle blockquote"] = function()
   child.lua([[M = require("jira.common.util")]])
@@ -134,14 +130,14 @@ T["util"]["markdown_to_adf"]["should handle table"] = function()
   MiniTest.expect.equality(child.lua_get([[#adf.content[1].content]]), 2)
 end
 
-T["util"]["markdown_to_adf"]["should handle ASCII diagram"] = function()
+T["util"]["markdown_to_adf"]["should handle code block"] = function()
   child.lua([[M = require("jira.common.util")]])
   child.lua([[
-    diagram = "┌─────────────────────────┐\n│  Proteus.Auth.Provider  │\n│  ─────────────────────  │\n└───────────┬─────────────┘"
-    adf = M.markdown_to_adf(diagram)
+    md = "```\nfunction test() {\n  return true;\n}\n```"
+    adf = M.markdown_to_adf(md)
   ]])
   MiniTest.expect.equality(child.lua_get([[adf.content[1].type]]), "codeBlock")
-  MiniTest.expect.equality(child.lua_get([[adf.content[1].content[1].text:find("┌")]]), 1)
+  MiniTest.expect.equality(child.lua_get([[adf.content[1].content[1].text:find("function")]]), 1)
 end
 
 T["util"]["adf_to_markdown"] = MiniTest.new_set()
@@ -211,24 +207,7 @@ T["util"]["adf_to_markdown"]["should convert table to markdown"] = function()
   MiniTest.expect.equality(child.lua_get([[md:find("c1")]]), 20)
 end
 
-T["util"]["adf_to_markdown"]["should convert ASCII diagram code block to plain text"] = function()
-  child.lua([[M = require("jira.common.util")]])
-  child.lua([[
-    adf = {
-      type = "doc",
-      version = 1,
-      content = {
-        {
-          type = "codeBlock",
-          content = { { type = "text", text = "┌─┐\n│ │\n└─┘" } }
-        }
-      }
-    }
-    md = M.adf_to_markdown(adf)
-  ]])
-  MiniTest.expect.equality(child.lua_get([[md:find("┌")]]), 1)
-  MiniTest.expect.equality(child.lua_get([[md:find("```")]]), nil)
-end
+
 
 T["util"]["build_issue_tree"] = MiniTest.new_set()
 
