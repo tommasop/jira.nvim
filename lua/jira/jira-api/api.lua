@@ -558,9 +558,28 @@ end
 
 -- Move issue to sprint (Agile API)
 function M.move_issue_to_sprint(issue_key, sprint_id, callback)
-  local endpoint = "/rest/agile/1.0/issue/" .. issue_key .. "/sprint"
+  local endpoint = "/rest/agile/1.0/sprint/" .. sprint_id .. "/issue"
   local data = {
-    sprintId = sprint_id,
+    issues = { issue_key },
+  }
+  curl_request("POST", endpoint, data, function(result, err)
+    if err then
+      if callback and vim.is_callable(callback) then
+        callback(nil, err)
+      end
+      return
+    end
+    if callback and vim.is_callable(callback) then
+      callback(result, nil)
+    end
+  end)
+end
+
+-- Move issues to backlog (Agile API)
+function M.move_issue_to_backlog(issue_key, callback)
+  local endpoint = "/rest/agile/1.0/backlog/issue"
+  local data = {
+    issues = { issue_key },
   }
   curl_request("POST", endpoint, data, function(result, err)
     if err then

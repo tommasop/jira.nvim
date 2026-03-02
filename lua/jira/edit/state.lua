@@ -8,6 +8,7 @@
 ---@field win? integer
 ---@field valid_components? string[]
 ---@field valid_sprints? table[]
+---@field original_sprint? string
 local M = {}
 
 return M

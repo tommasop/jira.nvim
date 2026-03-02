@@ -176,6 +176,9 @@ local function render_issue_as_md(issue)
     end
   end
   table.insert(lines, ("**Sprint**: %s"):format(current_sprint))
+  
+  -- Store original sprint for change detection
+  state.original_sprint = current_sprint
 
   table.insert(lines, "")
   table.insert(lines, "---")
@@ -328,14 +331,27 @@ local function on_save()
     fields.components = { { name = component } }
   end
 
+  -- Determine sprint change
   local sprint_id = nil
+  local sprint_changed = false
+  local sprint_removed = false
+  
   if sprint and sprint ~= "" then
+    -- Sprint field has a value - find the ID
     for _, s in ipairs(state.valid_sprints or {}) do
       if s.name == sprint then
         sprint_id = s.id
         break
       end
     end
+    -- Check if sprint actually changed
+    if state.original_sprint ~= sprint then
+      sprint_changed = true
+    end
+  elseif state.original_sprint and state.original_sprint ~= "" then
+    -- Sprint was cleared (removed)
+    sprint_removed = true
+    sprint_changed = true
   end
 
   if in_description then
@@ -355,7 +371,19 @@ local function on_save()
   end
 
   local function finish_save()
-    if sprint_id then
+    if not sprint_changed then
+      return
+    end
+    
+    if sprint_removed then
+      -- Move issue to backlog (remove from sprint)
+      jira_api.move_issue_to_backlog(state.issue.key, function(_, err)
+        if err then
+          vim.notify("Issue saved but failed to remove from sprint: " .. err, vim.log.levels.WARN)
+        end
+      end)
+    elseif sprint_id then
+      -- Move issue to new sprint
       jira_api.move_issue_to_sprint(state.issue.key, sprint_id, function(_, err)
         if err then
           vim.notify("Issue saved but failed to move to sprint: " .. err, vim.log.levels.WARN)
