@@ -62,7 +62,7 @@ local function update_sprint_line(sprint_name)
       local new_line = "**Sprint**: " .. sprint_name
       vim.api.nvim_buf_set_lines(state.buf, i - 1, i, false, { new_line })
 
-      local ns = vim.api.nvim_buf_create_namespace("JiraEditSprints")
+      local ns = vim.api.nvim_create_namespace("JiraEditSprints")
       vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
       vim.api.nvim_buf_set_extmark(state.buf, ns, i - 1, 0, {
         virt_text = { { "  Press <Enter> to select", "Comment" } },
