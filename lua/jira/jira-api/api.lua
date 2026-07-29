@@ -8,6 +8,7 @@
 local config = require("jira.common.config")
 local util = require("jira.common.util")
 local version = require("jira.jira-api.version")
+local log = require("jira.common.log")
 
 -- Simple URL encode function
 local function url_encode(str)
@@ -24,26 +25,29 @@ end
 -- Get environment variables
 ---@return JiraAuthOptions auth_opts
 local function get_env()
+  local auth = require("jira.common.auth").load() or {}
   local env = {}
 
-  -- Check environment variables first, fall back to config
-  env.base = os.getenv("JIRA_BASE_URL") or config.options.jira.base
-  env.email = os.getenv("JIRA_EMAIL") or config.options.jira.email
-  env.token = os.getenv("JIRA_TOKEN") or config.options.jira.token
-  env.type = (os.getenv("JIRA_AUTH_TYPE") or config.options.jira.type or "basic"):lower()
-  env.api_version = os.getenv("JIRA_API_VERSION") or config.options.jira.api_version or "3"
+  env.base = auth.base
+  env.email = auth.email
+  env.token = auth.token
+  env.type = (auth.type or "basic"):lower()
+  env.api_version = config.options.jira.api_version or "3"
   env.limit = config.options.jira.limit
 
   return env
 end
 
--- Validate environment variables
+-- Validate authentication
 ---@return boolean valid
-local function validate_env()
+local function validate_auth()
   local env = get_env()
   local is_pat = env.type == "pat"
-  if not env.base or (not is_pat and not env.email) or not env.token then
-    vim.notify("Missing Jira environment variables. Please check your setup.", vim.log.levels.ERROR)
+
+  if not env.base or env.base == ""
+      or (not is_pat and (not env.email or env.email == ""))
+      or not env.token or env.token == "" then
+    vim.notify("Missing Jira authentication. Use :Jira auth login.", vim.log.levels.ERROR)
     return false
   end
   return true
@@ -55,9 +59,9 @@ end
 ---@param data? table
 ---@param callback? fun(T?: table, err?: string)
 local function curl_request(method, endpoint, data, callback)
-  if not validate_env() then
+  if not validate_auth() then
     if callback and vim.is_callable(callback) then
-      callback(nil, "Missing environment variables")
+      callback(nil, "Missing Jira authentication")
     end
     return
   end
@@ -97,6 +101,11 @@ local function curl_request(method, endpoint, data, callback)
 
   cmd = ('%s"%s"'):format(cmd, url)
 
+  -- Log the outgoing request
+  local json_body = data and vim.json.encode(data) or nil
+  log.request(method, url, auth_header, json_body)
+  local start_time = vim.loop.hrtime()
+
   local stdout = {}
   local stderr = {}
 
@@ -116,6 +125,12 @@ local function curl_request(method, endpoint, data, callback)
       end
     end,
     on_exit = function(_, code, _)
+      -- Calculate elapsed time and log response
+      local elapsed_ms = math.floor((vim.loop.hrtime() - start_time) / 1e6)
+      local response_body = table.concat(stdout, "")
+      local stderr_str = table.concat(stderr, "\n")
+      log.response(method, url, elapsed_ms, response_body, stderr_str, code)
+
       if temp_file then
         os.remove(temp_file)
       end
@@ -165,17 +180,17 @@ local M = {}
 function M.search_issues(jql, page_token, max_results, fields, callback, project_key)
   local story_point_field = config.get_project_config(project_key).story_point_field
   fields = fields
-    or {
-      "summary",
-      "status",
-      "parent",
-      "priority",
-      "assignee",
-      "timespent",
-      "timeoriginalestimate",
-      "issuetype",
-      story_point_field,
-    }
+      or {
+        "summary",
+        "status",
+        "parent",
+        "priority",
+        "assignee",
+        "timespent",
+        "timeoriginalestimate",
+        "issuetype",
+        story_point_field,
+      }
 
   local data = version.transform_search_data(jql, page_token, max_results, fields)
   local endpoint = version.get_search_endpoint()

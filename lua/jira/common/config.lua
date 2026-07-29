@@ -16,6 +16,7 @@ local FALLBACKS = {
 ---@field type? "basic"|"pat" Authentication type (default: "basic")
 ---@field api_version? "2"|"3" API version to use (default: "3")
 ---@field limit? number Global limit of tasks when calling API
+---@field logging? boolean Enable HTTP request/response logging (default: false)
 
 ---@class JiraConfig
 ---@field jira JiraAuthOptions
@@ -24,12 +25,9 @@ local FALLBACKS = {
 ---@field queries? table<string, string> Saved JQL queries
 M.defaults = {
   jira = {
-    base = "",
-    email = "",
-    token = "",
-    type = "basic",
     api_version = "3",
     limit = 200,
+    logging = false,
   },
   projects = {},
   active_sprint_query = "project = '%s' AND sprint in openSprints() ORDER BY Rank ASC",

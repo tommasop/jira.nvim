@@ -1,5 +1,5 @@
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-6-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 > [!CAUTION]
@@ -42,10 +42,6 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI.
   opts = {
     -- Your setup options...
     jira = {
-      base = "https://your-domain.atlassian.net", -- Base URL of your Jira instance
-      email = "your-email@example.com",           -- Your Jira email (Optional for PAT)
-      token = "your-api-token",                   -- Your Jira API token or PAT
-      type = "basic",                             -- Authentication type: "basic" (default) or "pat"
       limit = 200,                                -- Global limit of tasks per view (default: 200)
     },
   },
@@ -54,18 +50,37 @@ A Neovim plugin for managing JIRA tasks with a beautiful UI.
 
 ---
 
+## Authentication
+
+The plugin uses a command-based authentication system. Run the following command to log in:
+
+```vim
+:Jira auth login
+```
+
+You will be prompted for:
+1. **Jira Base URL**: (e.g., `https://your-domain.atlassian.net`)
+2. **Auth Type**: `basic` (default) or `pat`
+3. **Email**: (Required for `basic`)
+4. **API Token / PAT**: Your Jira API token or Personal Access Token
+
+Credentials are securely stored in your Neovim data directory (`:Jira auth info` to see the exact path).
+
+Other auth commands:
+- `:Jira auth info`: Show current authentication status and file location.
+- `:Jira auth logout`: Remove stored credentials.
+
+---
+
 ## Configuration
 
 ```lua
 require('jira').setup({
-  -- Jira connection settings
+  -- Jira settings
   jira = {
-    base = "https://your-domain.atlassian.net", -- Base URL of your Jira instance
-    email = "your-email@example.com",           -- Your Jira email (Optional for PAT)
-    token = "your-api-token",                   -- Your Jira API token or PAT
-    type = "basic",                             -- Authentication type: "basic" (default) or "pat"
     api_version = "3",                          -- API version: "2" or "3" (default: "3")
     limit = 200,                                -- Global limit of tasks per view (default: 200)
+    logging = false,                            -- Enable HTTP request/response logging (default: false)
   },
 
   active_sprint_query = "project = '%s' AND sprint in openSprints() ORDER BY Rank ASC",
@@ -92,21 +107,7 @@ require('jira').setup({
 })
 ```
 
-Alternatively, you can set Jira credentials using environment variables, which takes precedence over config:
-
-```bash
-export JIRA_BASE_URL="https://your-domain.atlassian.net"
-export JIRA_EMAIL="your-email@example.com"
-export JIRA_TOKEN="your-api-token"
-export JIRA_AUTH_TYPE="basic" # or "pat"
-```
-
-Supported environment variables:
-- `JIRA_BASE_URL` - Base URL of your Jira instance
-- `JIRA_EMAIL` - Your Jira email (Optional for PAT)
-- `JIRA_TOKEN` - Your Jira API token or PAT
-- `JIRA_AUTH_TYPE` - Authentication type: "basic" (default) or "pat"
-- `JIRA_API_VERSION` - API version: "2" or "3" (default: "3")
+> **Note:** When `logging = true`, HTTP requests/responses are logged to `~/.local/state/nvim/jira_nvim.log` with sensitive auth tokens redacted.
 
 ---
 
@@ -115,6 +116,11 @@ Supported environment variables:
 Run the following command to open the Jira board:
 
 ```vim
+" Authentication
+:Jira auth login
+:Jira auth info
+:Jira auth logout
+
 " Open board
 :Jira <PROJECT_KEY>
 
@@ -249,6 +255,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://codeberg.org/DrKJeff16"><img src="https://avatars.githubusercontent.com/u/72052712?v=4?s=100" width="100px;" alt="Guennadi Maximov C"/><br /><sub><b>Guennadi Maximov C</b></sub></a><br /><a href="https://github.com/letieu/jira.nvim/commits?author=DrKJeff16" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://elsesiy.com"><img src="https://avatars.githubusercontent.com/u/7075075?v=4?s=100" width="100px;" alt="Jonas-Taha El Sesiy"/><br /><sub><b>Jonas-Taha El Sesiy</b></sub></a><br /><a href="https://github.com/letieu/jira.nvim/commits?author=elsesiy" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/bhedavivek"><img src="https://avatars.githubusercontent.com/u/12003668?v=4?s=100" width="100px;" alt="Vivek Bheda"/><br /><sub><b>Vivek Bheda</b></sub></a><br /><a href="https://github.com/letieu/jira.nvim/commits?author=bhedavivek" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://devopsyturvy.net"><img src="https://avatars.githubusercontent.com/u/2794589?v=4?s=100" width="100px;" alt="Roman Revyakin"/><br /><sub><b>Roman Revyakin</b></sub></a><br /><a href="https://github.com/letieu/jira.nvim/commits?author=romanrev" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/benelori"><img src="https://avatars.githubusercontent.com/u/6870459?v=4?s=100" width="100px;" alt="benelori"/><br /><sub><b>benelori</b></sub></a><br /><a href="https://github.com/letieu/jira.nvim/commits?author=benelori" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/AndromedaCLI"><img src="https://avatars.githubusercontent.com/u/59368718?v=4?s=100" width="100px;" alt="AndromedaCLI"/><br /><sub><b>AndromedaCLI</b></sub></a><br /><a href="https://github.com/letieu/jira.nvim/commits?author=AndromedaCLI" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

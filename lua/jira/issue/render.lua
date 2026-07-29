@@ -78,7 +78,10 @@ function M.render_content()
       assignee_name = fields.assignee.displayName
     end
     table.insert(lines, "**Assignee**: " .. assignee_name)
-    table.insert(lines, "**Priority**: " .. (fields.priority and fields.priority.name or "None"))
+    table.insert(
+      lines,
+      "**Priority**: " .. (fields.priority and fields.priority ~= vim.NIL and fields.priority.name or "None")
+    )
 
     -- Display components if they exist
     if fields.components and type(fields.components) == "table" and #fields.components > 0 then

@@ -324,7 +324,11 @@ function M.load_view(project_key, view_name)
     if err then
       vim.schedule(function()
         common_ui.stop_loading()
-        vim.notify("Error: " .. err, vim.log.levels.ERROR)
+        if err == "Missing Jira authentication" then
+          vim.notify("Jira: Not logged in. Please use :Jira auth login", vim.log.levels.ERROR)
+        else
+          vim.notify("Error: " .. err, vim.log.levels.ERROR)
+        end
       end)
       return
     end
@@ -595,9 +599,11 @@ function M.open_in_browser()
     return
   end
 
-  local base = config.options.jira.base
+  local auth = require("jira.common.auth").load() or {}
+  local base = auth.base;
+
   if not base or base == "" then
-    vim.notify("Jira base URL is not configured", vim.log.levels.ERROR)
+    vim.notify("Jira base URL is not configured, please login", vim.log.levels.ERROR)
     return
   end
 
@@ -637,13 +643,6 @@ function M.open(project_key)
   -- If already open, just focus
   if state.win and api.nvim_win_is_valid(state.win) then
     api.nvim_set_current_win(state.win)
-    return
-  end
-
-  -- Validate Config
-  local jc = config.options.jira
-  if not jc.base or jc.base == "" or not jc.email or jc.email == "" or not jc.token or jc.token == "" then
-    vim.notify("Jira configuration is missing. Please run setup() with base, email, and token.", vim.log.levels.ERROR)
     return
   end
 
